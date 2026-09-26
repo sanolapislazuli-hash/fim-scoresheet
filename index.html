@@ -1,0 +1,935 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#23508A" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0E1517" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="FIM">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<title>FIM 採点パッド</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap">
+<style>
+:root{
+  --ground:#EDF1F0; --surface:#FFFFFF; --surface-2:#F5F7F7; --ink:#14201E; --muted:#58696A; --line:#D3DCDA;
+  --accent:#23508A; --accent-soft:#E3ECF7; --on-accent:#FFFFFF;
+  --lv7:#2C7A4B; --lv6:#4E9163; --lv5:#8A861F; --lv4:#B7791F; --lv3:#C4632A; --lv2:#B8483E; --lv1:#8E2F3C;
+  --ok-soft:#E4F2E9; --warn-soft:#FBF0DC;
+  --sans:"BIZ UDPGothic","Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+  --num:"Barlow Semi Condensed","BIZ UDPGothic","Helvetica Neue",sans-serif;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --ground:#0E1517; --surface:#162024; --surface-2:#1C282C; --ink:#E4ECEA; --muted:#93A4A1; --line:#2B3B3F;
+    --accent:#86B4EA; --accent-soft:#1D3048; --on-accent:#0E1517;
+    --lv7:#3F9E66; --lv6:#5AA876; --lv5:#9E9A33; --lv4:#C08A2E; --lv3:#C9703D; --lv2:#C65A50; --lv1:#B04A5B;
+    --ok-soft:#18352A; --warn-soft:#3A2F17;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --ground:#0E1517; --surface:#162024; --surface-2:#1C282C; --ink:#E4ECEA; --muted:#93A4A1; --line:#2B3B3F;
+  --accent:#86B4EA; --accent-soft:#1D3048; --on-accent:#0E1517;
+  --lv7:#3F9E66; --lv6:#5AA876; --lv5:#9E9A33; --lv4:#C08A2E; --lv3:#C9703D; --lv2:#C65A50; --lv1:#B04A5B;
+  --ok-soft:#18352A; --warn-soft:#3A2F17;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.6;-webkit-tap-highlight-color:transparent;padding-inline:max(16px,env(safe-area-inset-left)) max(16px,env(safe-area-inset-right));padding-block:env(safe-area-inset-top,0px) calc(32px + env(safe-area-inset-bottom,0px))}
+[hidden]{display:none!important}
+img{max-width:100%}
+button{font:inherit;color:inherit;cursor:pointer;touch-action:manipulation}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.num{font-family:var(--num);font-variant-numeric:tabular-nums}
+
+/* top bar */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;background:var(--ground);padding-block:12px 10px;margin-inline:-16px;padding-inline:16px;border-bottom:1px solid var(--line)}
+.top-row{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between}
+.brand{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.brand h1{font-size:19px;margin:0;letter-spacing:.02em}
+.brand span{font-size:12px;color:var(--muted)}
+.meta{display:flex;flex-wrap:wrap;gap:8px}
+.meta label{display:flex;flex-direction:column;font-size:11px;color:var(--muted);letter-spacing:.04em}
+.meta input,.meta select{font:inherit;font-size:15px;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:7px 10px;min-height:40px;width:9.5em}
+.meta input#m-pid{width:8em}
+.meta input#m-rater{width:7em}
+.totals{display:flex;gap:6px;align-items:stretch}
+.tot{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:4px 12px;display:flex;flex-direction:column;align-items:flex-end;min-width:80px}
+.tot small{font-size:11px;color:var(--muted);letter-spacing:.04em}
+.tot b{font-family:var(--num);font-size:26px;line-height:1.05;font-weight:700}
+.tot b i{font-style:normal;font-size:14px;color:var(--muted);font-weight:500}
+.tot.all{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.tot.all small,.tot.all b i{color:inherit;opacity:.8}
+.tabs{display:flex;gap:4px;margin-top:10px;flex-wrap:wrap;align-items:center}
+.tab{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 18px;min-height:40px;font-weight:700;font-size:14px}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--ground);border-color:var(--ink)}
+.tabs .spacer{flex:1}
+.pill{font-size:12px;color:var(--muted);padding:4px 10px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line)}
+.pill.done{color:var(--lv7);background:var(--ok-soft);border-color:transparent}
+
+.sample{margin-top:12px;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;background:var(--warn-soft);border-radius:var(--r);padding:10px 14px;font-size:14px}
+
+/* score layout */
+.score-view{display:grid;grid-template-columns:210px minmax(0,1fr) 300px;gap:16px;margin-top:16px;align-items:start}
+.rail{position:sticky;top:calc(env(safe-area-inset-top,0px) + 170px);max-height:calc(100vh - 190px);overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:8px}
+.grp{font-size:11px;letter-spacing:.08em;color:var(--muted);padding:10px 8px 4px;display:flex;justify-content:space-between}
+.grp.domain{font-size:12px;color:var(--ink);font-weight:700;border-top:1px solid var(--line);margin-top:6px;padding-top:10px}
+.grp.domain:first-child{border-top:0;margin-top:0;padding-top:4px}
+.ri{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;text-align:left;padding:7px 8px;border-radius:8px;min-height:42px}
+.ri:hover{background:var(--surface-2)}
+.ri[aria-current="true"]{background:var(--accent-soft)}
+.ri .code{font-family:var(--num);font-size:12px;color:var(--muted);width:14px}
+.ri .nm{flex:1;font-size:14px;line-height:1.3}
+.chip{font-family:var(--num);font-weight:700;font-size:17px;width:30px;height:30px;border-radius:7px;display:grid;place-items:center;border:1.5px dashed var(--line);color:var(--muted);flex:none}
+.chip.set{border:0;color:#fff}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px 22px}
+.panel-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}
+.eyebrow{font-size:12px;color:var(--muted);letter-spacing:.06em}
+.panel h2{font-size:26px;margin:2px 0 0;text-wrap:balance;line-height:1.3}
+.navbtns{display:flex;gap:6px}
+.navbtns button{border:1px solid var(--line);background:var(--surface-2);border-radius:8px;min-width:48px;min-height:44px;font-size:18px}
+.navbtns button:disabled{opacity:.35}
+.def{margin:12px 0 0;font-size:15px}
+.points{margin:10px 0 0;padding:12px 14px 12px 30px;background:var(--surface-2);border-radius:8px;font-size:14px}
+.points li+li{margin-top:4px}
+.exbox{margin-top:10px;border:1px solid var(--line);border-radius:8px;padding:0 14px}
+.exbox summary{cursor:pointer;font-size:13px;font-weight:700;padding:10px 0;color:var(--muted);letter-spacing:.04em}
+.exs{display:flex;flex-direction:column;gap:6px;padding-bottom:12px}
+.ex{display:grid;grid-template-columns:26px minmax(0,1fr);gap:10px;align-items:start;font-size:13.5px;line-height:1.5}
+.ex b{font-family:var(--num);font-size:15px;width:26px;height:24px;border-radius:6px;display:grid;place-items:center;color:#fff}
+.modesw{display:flex;gap:6px;margin-top:12px;flex-wrap:wrap;align-items:center;font-size:13px;color:var(--muted)}
+.modesw button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 14px;min-height:38px;font-size:14px;color:var(--ink)}
+.modesw button[aria-pressed="true"]{background:var(--ink);color:var(--ground);border-color:var(--ink)}
+
+.levels{display:flex;flex-direction:column;gap:6px;margin-top:16px}
+.lv{display:grid;grid-template-columns:56px minmax(0,1fr);align-items:stretch;border:1.5px solid var(--line);background:var(--surface);border-radius:10px;padding:0;text-align:left;overflow:hidden;min-height:58px}
+.lv .n{display:grid;place-items:center;font-family:var(--num);font-size:30px;font-weight:700;color:#fff}
+.lv .t{padding:8px 14px;display:flex;flex-direction:column;justify-content:center}
+.lv .t b{font-size:15px}
+.lv .t span{font-size:13px;color:var(--muted);line-height:1.45}
+.lv:hover{border-color:var(--muted)}
+.lv[aria-pressed="true"]{border-color:var(--ink);box-shadow:0 0 0 2px var(--ink) inset}
+.lv[aria-pressed="true"] .t{background:var(--surface-2)}
+.lv.hint{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.lv:disabled{opacity:.4;cursor:not-allowed}
+.lv-sep{font-size:11px;color:var(--muted);letter-spacing:.08em;padding:6px 2px 0}
+
+.note{margin-top:14px}
+.note label{font-size:12px;color:var(--muted);letter-spacing:.04em}
+.note textarea{width:100%;font:inherit;font-size:14px;color:var(--ink);background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-height:64px;resize:vertical}
+.foot-row{display:flex;justify-content:space-between;align-items:center;margin-top:12px;gap:10px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.switch{display:flex;align-items:center;gap:8px;min-height:40px}
+.switch input{width:22px;height:22px;accent-color:var(--accent)}
+.clearbtn{border:1px solid var(--line);background:none;border-radius:8px;padding:6px 12px;min-height:40px;font-size:13px}
+
+/* navigator */
+.navi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;position:sticky;top:calc(env(safe-area-inset-top,0px) + 170px);max-height:calc(100vh - 190px);overflow:auto}
+.navi h3{margin:0;font-size:15px}
+.navi .sub{font-size:12px;color:var(--muted);margin:2px 0 10px}
+.nseg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:12px}
+.nseg button{flex:1;border:0;background:var(--surface-2);padding:8px 6px;min-height:40px;font-size:13px}
+.nseg button[aria-pressed="true"]{background:var(--ink);color:var(--ground)}
+.trail{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.trail div{font-size:12px;color:var(--muted);border-left:2px solid var(--line);padding-left:8px}
+.trail div b{color:var(--ink);font-weight:700}
+.q{font-size:15px;font-weight:700;margin:4px 0 10px;line-height:1.5}
+.qhint{font-size:12px;color:var(--muted);margin:-4px 0 10px;line-height:1.55}
+.opts{display:flex;flex-direction:column;gap:6px}
+.opt{border:1.5px solid var(--line);background:var(--surface-2);border-radius:8px;padding:10px 12px;min-height:46px;text-align:left;font-size:14px;display:flex;justify-content:space-between;gap:8px;align-items:center;line-height:1.4}
+.opt:hover{border-color:var(--accent)}
+.opt em{font-style:normal;font-family:var(--num);font-weight:700;font-size:16px;color:var(--muted);flex:none}
+.result{border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px;background:var(--accent-soft)}
+.result .big{display:flex;align-items:baseline;gap:10px}
+.result .big b{font-family:var(--num);font-size:44px;line-height:1}
+.result .big span{font-weight:700}
+.result small{font-size:13px;line-height:1.5}
+.result .row{display:flex;gap:6px;flex-wrap:wrap}
+.primary{background:var(--accent);color:var(--on-accent);border:0;border-radius:8px;padding:10px 16px;min-height:46px;font-weight:700;font-size:15px}
+.ghost{background:none;border:1px solid var(--line);border-radius:8px;padding:8px 14px;min-height:42px;font-size:14px}
+.freq{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.freq .opt[aria-pressed="true"],.asst .opt[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.asst{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.asst .opt{justify-content:center;padding:8px 0;font-family:var(--num);font-weight:700;font-size:18px}
+.navi .sec{font-size:12px;color:var(--muted);letter-spacing:.04em;margin:14px 0 6px}
+.navi .sec:first-of-type{margin-top:0}
+.parts{display:flex;flex-direction:column;gap:10px}
+.part .pl{font-size:13.5px;margin-bottom:4px}
+.pseg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.pseg button{flex:1;border:0;border-left:1px solid var(--line);background:var(--surface-2);padding:6px 4px;min-height:40px;font-size:13px}
+.pseg button:first-child{border-left:0}
+.pseg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);font-weight:700}
+.meter{margin:14px 0 10px}
+.meter .mt{display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
+.meter .mt b{font-family:var(--num);font-size:20px;color:var(--ink)}
+.meter .bar{height:10px;background:var(--surface-2);border-radius:5px;overflow:hidden;border:1px solid var(--line)}
+.meter .bar i{display:block;height:100%;background:var(--accent)}
+.hintlist{font-size:12px;color:var(--muted);margin:6px 0 0;padding-left:18px;line-height:1.6}
+
+/* summary */
+.sum-view{margin-top:16px;display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:16px;align-items:start}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px 20px}
+.card h2{font-size:18px;margin:0 0 4px}
+.card .sub{font-size:13px;color:var(--muted);margin:0 0 12px}
+.tbl-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+th{font-size:11px;color:var(--muted);letter-spacing:.06em;font-weight:700}
+td.c,th.c{text-align:center}
+tr.dom td{background:var(--surface-2);font-weight:700;font-size:13px}
+.bar{position:relative;height:14px;background:var(--surface-2);border-radius:4px;min-width:110px}
+.bar i{position:absolute;left:0;top:0;bottom:0;border-radius:4px}
+.bar u{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink);opacity:.55;text-decoration:none}
+.gain{font-family:var(--num);font-weight:700}
+.gain.up{color:var(--lv7)} .gain.down{color:var(--lv2)}
+.cmpsel{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;font-size:13px;color:var(--muted)}
+.cmpsel select{font:inherit;font-size:14px;color:var(--ink);background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:6px 8px;min-height:40px;max-width:100%}
+.stack{display:flex;flex-direction:column;gap:16px}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap}
+pre.out{white-space:pre-wrap;font-family:var(--sans);font-size:13px;background:var(--surface-2);border-radius:8px;padding:12px;margin:10px 0 0;max-height:260px;overflow:auto}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--ground);padding:10px 18px;border-radius:999px;font-size:14px;z-index:50;box-shadow:0 6px 20px rgba(0,0,0,.2);max-width:calc(100vw - 32px)}
+
+/* history */
+.hist{margin-top:16px;display:flex;flex-direction:column;gap:8px}
+.hrow{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 16px;display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;align-items:center}
+.hrow .who{font-weight:700}
+.hrow .when{font-size:13px;color:var(--muted)}
+.hrow .sc{font-family:var(--num);font-size:14px;color:var(--muted);text-align:right}
+.hrow .sc b{font-size:24px;color:var(--ink)}
+.hrow .acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.danger{border-color:var(--lv2)!important;color:var(--lv2)}
+.empty{background:var(--surface);border:1px dashed var(--line);border-radius:var(--r);padding:28px;text-align:center;color:var(--muted)}
+.privacy{margin-top:24px;font-size:12px;color:var(--muted);max-width:75ch}
+
+@media (max-width:1099px){
+  .score-view{grid-template-columns:220px minmax(0,1fr)}
+  .navi{grid-column:2;position:static;max-height:none}
+}
+@media (max-width:820px){
+  .top{position:static}
+  .score-view{grid-template-columns:minmax(0,1fr)}
+  .navi{grid-column:auto}
+  .rail{position:static;max-height:none;display:flex;overflow-x:auto;gap:4px;padding:6px}
+  .rail .grp{display:none}
+  .ri{flex:0 0 auto;width:auto;flex-direction:column;gap:2px;padding:6px 8px;min-width:64px}
+  .ri .code{display:none}
+  .ri .nm{font-size:11px;text-align:center;white-space:nowrap}
+  .sum-view{grid-template-columns:minmax(0,1fr)}
+  .panel{padding:16px}
+  .panel h2{font-size:22px}
+  .hrow{grid-template-columns:minmax(0,1fr) auto}
+  .hrow .acts{grid-column:1/-1;justify-content:flex-start}
+}
+@media (prefers-reduced-motion:no-preference){
+  .lv,.opt,.ri{transition:border-color .12s,background-color .12s}
+}
+.backup{margin-top:20px}
+.toast button{margin-left:12px;background:var(--accent);color:var(--on-accent);border:0;border-radius:999px;padding:4px 12px;font-size:13px;font-weight:700}
+.ver{font-family:var(--num)}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-row">
+    <div class="brand"><h1>FIM 採点パッド</h1><span>運動13・認知5項目／各1〜7点</span></div>
+    <div class="meta">
+      <label for="m-pid">患者ID<input id="m-pid" autocomplete="off" placeholder="氏名は入れない"></label>
+      <label for="m-date">評価日<input id="m-date" type="date"></label>
+      <label for="m-timing">評価時期<select id="m-timing"><option>入院時</option><option>中間</option><option>退院時</option><option>その他</option></select></label>
+      <label for="m-rater">評価者<input id="m-rater" autocomplete="off"></label>
+    </div>
+    <div class="totals">
+      <div class="tot"><small>運動</small><b><span id="t-m">0</span><i>/91</i></b></div>
+      <div class="tot"><small>認知</small><b><span id="t-c">0</span><i>/35</i></b></div>
+      <div class="tot all"><small>合計</small><b><span id="t-a">0</span><i>/126</i></b></div>
+    </div>
+  </div>
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" id="tab-score" aria-selected="true">採点</button>
+    <button class="tab" role="tab" id="tab-sum" aria-selected="false">集計・比較</button>
+    <button class="tab" role="tab" id="tab-hist" aria-selected="false">保存した評価</button>
+    <span class="spacer"></span>
+    <span class="pill" id="progress">0/18 採点済み</span>
+  </div>
+</header>
+
+<div class="sample" id="sample-banner" hidden>
+  <span><b>サンプルデータを表示中です。</b>架空の例です。実際の評価は「新規評価を始める」から入力してください。</span>
+  <button class="primary" id="btn-new-from-sample">新規評価を始める</button>
+</div>
+
+<main>
+  <section id="view-score" class="score-view">
+    <nav class="rail" id="rail" aria-label="項目一覧"></nav>
+    <article class="panel" id="panel"></article>
+    <aside class="navi" id="navi" aria-label="判定ナビ"></aside>
+  </section>
+
+  <section id="view-sum" class="sum-view" hidden>
+    <div class="card">
+      <h2>項目別スコア</h2>
+      <p class="sub">縦線は比較対象の点数です。</p>
+      <div class="cmpsel"><label for="cmp">比較対象</label><select id="cmp"></select></div>
+      <div class="tbl-wrap"><table id="sumtbl"></table></div>
+    </div>
+    <div class="stack">
+      <div class="card">
+        <h2>記録と書き出し</h2>
+        <p class="sub">保存先はこの端末のブラウザだけです。カルテなどへはコピーして転記してください。</p>
+        <div class="btnrow">
+          <button class="primary" id="btn-save">この評価を保存</button>
+          <button class="ghost" id="btn-copy-text">文章でコピー</button>
+          <button class="ghost" id="btn-copy-tsv">Excel用にコピー</button>
+        </div>
+        <pre class="out" id="out"></pre>
+      </div>
+      <div class="card">
+        <h2>新しい評価</h2>
+        <p class="sub">入力中の内容を消して空の評価表にします。保存していない内容は失われます。</p>
+        <div class="btnrow" id="new-row"><button class="ghost" id="btn-new">新規評価</button></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="view-hist" hidden>
+    <div class="hist" id="hist"></div>
+    <div class="card backup">
+      <h2>バックアップ</h2>
+      <p class="sub">保存した評価と入力中の評価をファイルに書き出します。iPadの買い替えやデータ消去に備えて、定期的に書き出してください。読み込むと、同じ評価は上書きされ、ほかの評価はそのまま残ります。</p>
+      <div class="btnrow">
+        <button class="primary" id="btn-export">全データを書き出す</button>
+        <button class="ghost" id="btn-import">バックアップを読み込む</button>
+        <button class="ghost" id="btn-csv">一覧をCSVで書き出す</button>
+        <input type="file" id="import-file" accept=".json,application/json" hidden>
+      </div>
+    </div>
+  </section>
+
+  <p class="privacy">患者の氏名は入力せず、IDを使ってください。データはこの端末のブラウザにだけ保存され、ブラウザのデータ消去やプライベートブラウズでは残りません。採点基準は「FIM 医学的リハビリテーションのための統一データセット利用の手引き（第3版）」と慶應義塾大学リハビリテーション医学教室のFIM講習会資料を要約したものです。迷ったときは原典で確認してください。　<span class="ver">v<span id="app-ver"></span></span></p>
+</main>
+
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function(){
+"use strict";
+const APP_VERSION = "1.0";
+
+/* ---------- 採点基準 ---------- */
+const MOTOR_LV = {
+  7:["完全自立","補助具なし・通常の時間で・安全に一人で行う"],
+  6:["修正自立","介助者なし。ただし補助具（装具・杖・手すり等。眼鏡は含まない）、通常の3倍以上の時間、安全性の配慮のいずれかが必要"],
+  5:["監視・準備","介助者は体に触れない。見守り・指示・促し、または準備（物品の用意、装具をつける等）"],
+  4:["最小介助","手で触れる程度の介助。本人が75%以上を行う"],
+  3:["中等度介助","本人が50%以上75%未満を行う"],
+  2:["最大介助","本人が25%以上50%未満を行う"],
+  1:["全介助","本人が25%未満、または二人介助（二人介助は必ず1点）"]
+};
+const SPH_LV = {
+  7:["完全自立","完全に随意的にコントロールし、失敗しない"],
+  6:["修正自立","尿器・カテーテル・おむつ・座薬・内服などを自分で扱い、失敗しない"],
+  5:["監視・準備","器具の用意・片付け・尿捨てなどの準備や監視が必要／失敗は月1回未満"],
+  4:["最小介助","器具の扱いに最小限の介助（尿器をあてる等）／失敗は週1回未満"],
+  3:["中等度介助","本人が課題の50〜75%を行う／失敗は1日1回未満"],
+  2:["最大介助","本人が課題の25〜50%を行う／失敗が毎日"],
+  1:["全介助","本人が課題の25%未満／失敗が毎日"]
+};
+const COG_LV = {
+  7:["完全自立","複雑・抽象的な課題も介助なしで行う"],
+  6:["修正自立","介助なしで行うが、わずかな困難・通常以上の時間・補助具（補聴器、筆談、日課表、薬など）が必要"],
+  5:["監視・促し","介助（指示・促し・配慮）が必要なのは10%未満。90%以上の機会でできる"],
+  4:["最小介助","介助が10%以上25%未満。75〜90%の機会でできる"],
+  3:["中等度介助","介助が25%以上50%未満。50〜75%の機会でできる"],
+  2:["最大介助","介助が50%以上75%未満。25〜50%の機会でできる"],
+  1:["全介助","介助が75%以上。25%未満の機会でしかできない"]
+};
+const LOCO_LV = {
+  7:["完全自立","補助具も車椅子も使わず、50m以上を安全に歩く"],
+  6:["修正自立","装具・義足・杖・歩行器で50m以上歩く（時間・安全配慮を含む）／車椅子で50m以上自立（方向転換・敷居・3%の坂を含む）"],
+  5:["監視・準備","50m以上を監視・指示・促しで移動／特例：普段の移動が15mの範囲（家庭内移動）で、15m以上を一人で移動"],
+  4:["最小介助","50m以上。本人が75%以上を行う"],
+  3:["中等度介助","50m以上。本人が50〜75%を行う"],
+  2:["最大介助","50mは移動しない。15m以上を一人の介助で、本人が25%以上を行う"],
+  1:["全介助","15m未満しか移動しない、本人25%未満、または二人介助"]
+};
+const STAIR_LV = {
+  7:["完全自立","手すりや支えを使わず、12〜14段を安全に昇降"],
+  6:["修正自立","手すり・杖・装具・義足を使う、時間がかかる、安全性の配慮が必要"],
+  5:["監視・準備","12〜14段を監視・指示・促しで昇降／特例：普段の昇降が4〜6段の範囲で、4〜6段を一人で昇降"],
+  4:["最小介助","12〜14段。本人が75%以上を行う"],
+  3:["中等度介助","12〜14段。本人が50〜75%を行う"],
+  2:["最大介助","12〜14段は昇降しない。4〜6段を一人の介助で、本人が25%以上を行う"],
+  1:["全介助","4段未満しか昇降しない、本人25%未満、二人介助、または運ばれる"]
+};
+const TRANSFER_HINT = ["4点：念のため軽く触れる","3点：立ち上がりで軽く引き上げる（回る・座るは本人）","2点：しっかり引き上げて回す","1点：持ち上げて移す、二人介助"];
+
+const ITEMS = [
+  {id:"eat",code:"A",dom:"m",grp:"セルフケア",name:"食事",type:"motor",
+   def:"適切に用意された食事を、食器を使って口に運び、咀嚼し、嚥下するまで。",
+   pts:["介助量は「口に運ぶ」「かき集める」「飲み込む」の3動作で考え、運ぶ動作をより重く見る","配膳後の準備（エプロン、肉を切る・ほぐす、ふたを開ける）だけなら5","食器の片付けは評価に含めない"],
+   ex:[[7,"スプーンで自立。箸を使わなくても減点しない"],[7,"塩分制限食（嚥下や食事動作への配慮ではない）"],[6,"握りを太くしたスプーンで自分で食べる"],[6,"配膳前にきざみ食にしてあり、一人で食べる"],[5,"配膳後に飲み物のふたを開けてもらう・きざんでもらう"],[3,"自助具をつけ、食物をスプーンに乗せてもらえば自分で口に運び嚥下する（介助1/3程度）"],[1,"口に入れてもらえば飲み込めるが、すくう・運ぶは全介助"]]},
+  {id:"groom",code:"B",dom:"m",grp:"セルフケア",name:"整容",type:"motor",
+   parts:["口腔ケア","整髪","手洗い","洗顔","髭剃り・化粧"],allowNA:true,
+   def:"口腔ケア、整髪、手洗い、洗顔、髭剃り（または化粧）の5項目。",
+   pts:["5項目は互いに独立。1項目20%として、何項目をどの程度しているかで採点","介助でも行わない項目（髭剃り・化粧など）は除き、残りの項目で採点する","準備の例：歯ブラシに歯磨き粉をつける、タオルや洗面道具を用意する、自助具をつける、髪の乱れを教える → 5"],
+   ex:[[7,"口腔ケアを介助者なしで行う"],[6,"自助具を使うが、準備や装着も自分で行う"],[5,"歯ブラシに歯磨き粉をつけてもらう"],[4,"義歯は自分で磨くが、洗浄液にはつけてもらう"],[3,"5項目中3項目を自分で行う（60%）"],[2,"自分では前歯だけ磨く"],[1,"全部磨いてもらう"]]},
+  {id:"bathe",code:"C",dom:"m",grp:"セルフケア",name:"清拭（入浴）",type:"motor",
+   parts:["胸部","腹部","右上肢","左上肢","会陰部前面","臀部","右大腿","左大腿","右下腿（足含む）","左下腿（足含む）"],allowNA:true,
+   def:"首から下（背中は除く）を洗い、すすぎ、拭いて乾かす。浴槽・シャワー・ベッド上清拭のいずれでもよく、している方法で評価する。",
+   pts:["10部位×各10%で、何部位を自分で洗っているかをみる。主動作は「洗う」","頭と背中は採点しない","動作を始めた後の手伝いは準備ではなく介助（毎回タオルを絞ってもらう等）","浴槽への出入りは「移乗（浴槽・シャワー）」で評価"],
+   ex:[[7,"右足先は洗えないが洗ってもらわず放置。介助者の負担がないので減点しない"],[6,"柄付きブラシ・ループ付きタオル・滑り止めマットを使う、3倍以上の時間"],[5,"湯の温度調節、石鹸をタオルにつける、タオルを絞ってもらう（始める前）"],[4,"右下腿と臀部を洗ってもらう（8/10は自分）"],[2,"3部位だけ自分で洗う（30%）"],[2,"全部位で洗う・すすぐ・乾かすに半分以上の介助"]]},
+  {id:"dressU",code:"D",dom:"m",grp:"セルフケア",name:"更衣（上半身）",type:"motor",
+   parts:["かぶる","片袖を通す","もう一方の袖を通す","引き下ろす"],
+   def:"腰より上の衣服の着脱。義肢や装具を装着している場合はその着脱も含む。",
+   pts:["採点するのは着る・脱ぐ。衣服を取り出す・しまうは準備（→5）","入浴前後の着脱は含めない","装具の装着だけしてもらう場合は5まで。弾性ストッキングも装具と同じ扱い","かぶり服しか着ない人は、前開きではなくかぶり服の介助量で評価"],
+   ex:[[7,"袖を通す・かぶる・おろす、すべて自立"],[5,"服をタンスから出してもらう、アドバイスのみ"],[4,"ボタンのみ介助してもらう"],[4,"少し触る程度の介助（25%未満）"],[3,"片袖通しとかぶるのを手伝ってもらう（4動作中2動作）"],[2,"片袖・かぶる・健側の袖も少し介助"],[1,"4動作とも全介助"]]},
+  {id:"dressL",code:"E",dom:"m",grp:"セルフケア",name:"更衣（下半身）",type:"motor",
+   parts:["ズボン・スカート","下着","靴下","靴"],
+   def:"腰より下の衣服の着脱。靴・靴下、義肢や装具を装着している場合はその着脱も含む。",
+   pts:["小項目（ズボン・下着・靴下・靴）で点数が異なる場合は平均する","衣服の用意・片付けは準備（→5）","装具をつけてもらうだけなら5まで"],
+   ex:[[4,"靴下だけはかせてもらい、他は自分で（3/4）"],[4,"引き上げの最後で裾を整えてもらう程度"],[3,"片足を通す・引き上げる際に支えてもらう"],[2,"両足を通してもらい、引き上げは自分"],[1,"全介助"]]},
+  {id:"toilet",code:"F",dom:"m",grp:"セルフケア",name:"トイレ動作",type:"motor",
+   parts:["服を下ろす","拭く","服を上げる"],
+   def:"会陰部の清拭と、トイレや差し込み便器の使用前後に衣服を整えること。生理用品の扱いも含む。",
+   pts:["3動作で介助量を考える：3動作自分→5点以上、2動作→3、1動作→2、全介助→1","便器への移乗（移乗・トイレ）、排泄そのもの（排泄コントロール）とは分けて採点"],
+   ex:[[6,"手すりにつかまって一人で上げ下ろし（手すり＝補助具）"],[5,"紙を渡してもらう（準備）"],[4,"軽く手を触れる程度の支え"],[3,"服の引き上げだけ介助（1/3）"],[2,"拭くのは自分、下ろす・上げるは介助"]]},
+  {id:"bladder",code:"G",dom:"m",grp:"排泄コントロール",name:"排尿管理",type:"sph",
+   def:"排尿の完全なコントロールと、そのために必要な器具や薬剤の使用。",
+   pts:["失敗の頻度と介助量を別々に採点し、低い方をとる","失敗＝服・寝具・床を汚し、その片付けに介助を受けること。おむつ内で服を汚さない失禁は失敗ではない","日中と夜間で違う場合は低い方","介助が毎日ではない混在（自尿＋介助導尿など）：週1回以下→5、週2〜6回→4","毎日の混在：自分でする回数が多い→4、同じ→3、少ない→2、してもらうのみ→1"],
+   ex:[[6,"自己間欠導尿で自立し、こぼさない（器具使用）"],[5,"尿器・ポータブルトイレを用意・片付けてもらう、尿を捨ててもらう"],[4,"尿器をあててもらう、陰茎を入れてもらう"],[4,"集尿器は自立だが、月2回ほど周囲を濡らす（失敗の頻度で4）"],[4,"日中はトイレで自立、夜間は尿器をあてて押さえてもらう（低い方）"],[6,"おむつを自分で取り替える"],[2,"おむつの取り替えを頼む"],[1,"取り替えを頼むこともしない"]]},
+  {id:"bowel",code:"H",dom:"m",grp:"排泄コントロール",name:"排便管理",type:"sph",
+   def:"排便の完全なコントロールと、そのために必要な器具や薬剤の使用。",
+   pts:["失敗の頻度と介助量を別々に採点し、低い方をとる","摘便・浣腸・座薬の挿入・腹圧の介助は介助にあたる","座薬を自分で使う：月2回以下→7、週1回程度→6","座薬を入れてもらう：週2回以下→5、隔日〜毎日→4（座薬だけでは4より下がらない）"],
+   ex:[[7,"2週に1回、自分で座薬を使う（月2回以下）"],[6,"毎回便失禁だが、おむつ内で漏らさず自分で捨てて始末する（器具使用）"],[5,"座薬を週2回以下入れてもらう"],[4,"10日に1回くらい失便して服を着替える（失敗 週1回未満）"],[4,"座薬を隔日〜毎日入れてもらう"]]},
+  {id:"trBed",code:"I",dom:"m",grp:"移乗",name:"ベッド・椅子・車椅子",type:"motor",touchHint:true,
+   def:"ベッド・椅子・車椅子の間の移乗のすべての段階。歩行が主な移動手段なら立ち上がりを含む。",
+   pts:["往きと帰りの両方が対象。点数が違えば低い方","起き上がりも含む（比重は少ない）","車椅子ではブレーキ・フットレストの操作も含む"],
+   ex:[[7,"装具や手すりを使わず、一人で日常的に移乗"],[6,"手すり・特殊な椅子・装具・杖・スライディングボード・リフトを使い一人で"],[5,"車椅子の位置を直してもらう、フットレストを動かしてもらう、ボードを置いてもらう"],[4,"介助者が念のため軽く触れている"],[3,"立ち上がりで軽く引き上げられ、方向転換と着座は本人"],[2,"しっかり引き上げられ、回して向きを変えてもらう"],[2,"行きは4点レベル、帰りは2点レベル → 低い方"],[1,"二人介助で移す、持ち上げて移す"]]},
+  {id:"trToi",code:"J",dom:"m",grp:"移乗",name:"トイレ",type:"motor",touchHint:true,
+   def:"便器に移ることと、便器から離れること。",
+   pts:["考え方はベッド・椅子・車椅子移乗と同じ","衣服の上げ下ろしはトイレ動作で評価（ここでは対象外）","備え付けの手すりでも、動作時に使えば補助具（→6）"],
+   ex:[[7,"ポータブルトイレに一人で移る（ポータブルトイレ自体は補助具ではない）"],[6,"トイレの手すりにつかまって一人で移る"],[5,"車椅子の位置を直してもらい、見守りと声かけのみ"],[5,"立ち上がり・方向転換・着座は見守り、服の上げ下ろしだけ手伝ってもらう"],[3,"立ち上がりで軽く引き上げられ、あとは自分で向きを変えて座る"],[1,"二人介助、または便器へ移らない"]]},
+  {id:"trTub",code:"K",dom:"m",grp:"移乗",name:"浴槽・シャワー",type:"motor",
+   parts:["浴槽内へまたいで入る","沈み込む","湯から上がる","浴槽外へまたいで出る"],
+   def:"浴槽またはシャワー室に入り、そこから出ること。浴槽とシャワーのどちらで評価したかを記録する。",
+   pts:["浴槽：そばにいる状態から、またいで入り、沈み込み、上がって出るまで","シャワー：浴槽に入っていない場合はシャワー椅子への移乗を評価","浴槽のそばまで移動するのは対象外。往復の両方が対象"],
+   ex:[[6,"手すり・バスボードを使って一人で"],[5,"バスグリップとバスボードを直前に設置してもらう"],[4,"片足だけ浴槽にまたがせてもらう"],[3,"両足をまたがせてもらう"],[2,"出入りでしっかり引き上げて腰を回してもらう（介助約60%）"]]},
+  {id:"loco",code:"L",dom:"m",grp:"移動",name:"歩行・車椅子",type:"loco",
+   def:"立位での歩行、または座位での平地の車椅子移動。最も頻繁に使う手段で評価する。",
+   pts:["治療中は退院時に主とする移動手段で評価する（入院時も同じ手段で）","50m：社会的な移動の最低距離／15m：家庭内の移動距離","車椅子は手動・電動を問わない。車椅子の場合は最高6点"],
+   ex:[[6,"両ロフストランド杖で50m以上をひとりで歩く"],[4,"車椅子で50m移動。角を曲がる・敷居を越えるときだけ介助（25%未満）"],[5,"普段の移動が15mの範囲にとどまり、15m以上を一人で移動（特例）"],[2,"40mは介助で歩くが50mは歩かない。15mも一人に支えられて歩く"]]},
+  {id:"stairs",code:"M",dom:"m",grp:"移動",name:"階段",type:"stairs",
+   def:"屋内の12〜14段（1階分）の階段の昇降。",
+   pts:["12〜14段（1階分）と4〜6段（中階・小上がり・玄関ポーチ程度）で評価。段の高さは問わない","上りと下りで点数が違う場合は低い方","エレベーターは含まない（補助具ではない）","普段階段を使わない場合は「できる」ADL（テスト）で評価してよい"],
+   ex:[[6,"義足で12〜14段を一人で昇降（義足は補助具）"],[2,"8段を触れてもらう程度の介助で昇降し、それ以上はしない"]]},
+  {id:"comp",code:"N",dom:"c",grp:"コミュニケーション",name:"理解",type:"cog",verb:"わかる",
+   def:"聴覚または視覚によるコミュニケーションの理解。最も普通に使う方法（聴覚／視覚）で評価する。",
+   pts:["複雑な課題：集団会話、テレビ・新聞の話題、冗談、金銭や宗教の話","簡単な課題（基本的欲求）：食事、飲み物、排泄、睡眠、痛みなどの体調","介助＝評価者の配慮：ゆっくり話す、繰り返す、言葉を選ぶ、強調する、間をおく、ジェスチャーを使う","失語症で字やジェスチャーを補助に使う場合は「聴覚」を選び、それを介助とみなす"],
+   ex:[[6,"難聴で補聴器を使い、複雑な内容も聞き取ってわかる"],[5,"軽度の認知症。ニュースは理解できないが、体調・食欲・排泄の話は繰り返さなくてもわかる"],[4,"言葉を選んだ短い文なら通じる（「投薬を望まれますか？」は通じないが「薬が欲しいですか？」は通じる）"],[3,"言葉を強調した短い句で理解する（「お痛みですか？痛い？」）"],[2,"ジェスチャーや単語、Yes/Noで伝えたことはわかる"]]},
+  {id:"expr",code:"O",dom:"c",grp:"コミュニケーション",name:"表出",type:"cog",verb:"伝えている",
+   def:"音声または非音声（書字・会話補助装置など）による言語の表出。",
+   pts:["複雑な課題：最近のできごとの議論、信仰、他人との関わり","簡単な課題：栄養・飲み物・排泄・清潔・睡眠などの基本的欲求","介助＝聞き取るための配慮：ゆっくり・繰り返させる、言い直させる、間をおかせる","答えの内容が間違っていても、理解・表出の点は下げない"],
+   ex:[[6,"失声症で筆談を使い、複雑な内容も表現する"],[3,"空腹や尿意を訴えても5回に2回は通じない（60%）"],[2,"単語だけで意思を伝え、それ以上はしない"]]},
+  {id:"social",code:"P",dom:"c",grp:"社会的認知",name:"社会的交流",type:"social",
+   def:"治療や社会の場で他人と折り合い、集団に参加する。自分の要求とともに他人の要求をどう扱うか。",
+   pts:["複雑・簡単の区別はない。家族・スタッフ・他患と適切に関わっているか","介助の例：参加を促す、不適切な言動に合図する、先に働きかける、そばにつく、モニターで監視、抑制","不適切な言動の例：訓練拒否、挨拶を無視、かんしゃく、暴言・暴力、過度のひきこもり、周囲に構わず話し続ける","5点以下は頻度で判定。「○回に×回」と考えると目安がつけやすい"],
+   ex:[[6,"面識の乏しいスタッフには挨拶を返さないことがあるが、慣れれば促しなく適切"],[6,"薬で気分や行動がコントロールされている"],[5,"2週間に1回くらい大声を出して助言を受けるが、普段は迷惑なく集団に参加（10%以下）"],[2,"2回に1回以上、スタッフに嫌味を言い不快感を与える"],[1,"常に怒鳴り、スタッフがおびえながら接している／全く交流していない"]]},
+  {id:"problem",code:"Q",dom:"c",grp:"社会的認知",name:"問題解決",type:"cog",verb:"解決している",both:true,
+   def:"日常生活上の問題を、合理的・安全に・タイミングよく判断し、行動を開始し、続け、誤りを自分で修正する。",
+   pts:["複雑な問題：退院計画（福祉制度、家屋改修、移送の手配）、薬の自己管理、金銭管理、対人トラブル","日常の問題：一人で動いたら転倒するとわかる、必要時にナースコールで介助を頼む、物が欲しいときに人に頼む","解決策を考えて人に依頼し実行するのは介助にあたらない","複雑な問題はできても日常の問題ができない場合は5点以下で、日常の問題の解決度で採点"],
+   ex:[[7,"四肢麻痺で自分では動けないが、協力者に指示して金銭管理や退院準備を進める"],[6,"日付入りの薬ケースと服薬チェック表で内服を自己管理"],[2,"移乗時は介助者を呼ぶよう伝えているが、2回に1回以上一人で移乗しようとする"]]},
+  {id:"memory",code:"R",dom:"c",grp:"社会的認知",name:"記憶",type:"memory",
+   parts:["関わりの深い人","毎日の日課","他人からの依頼"],
+   def:"施設や社会の場で日常的な活動を行うための認知と記憶。言語的・視覚的な情報を記憶し再生する力。",
+   pts:["3つの内容を各1/3として割合を出す：関わりの深い人（家族・担当スタッフ・同室者）／毎日の日課（起床・食事・訓練の時間と場所）／他人からの依頼（一段階〜三段階の指示）","思い出や1か月先の予定は対象外","介助の例：声かけ、ノートや日課表を見るよう促す、依頼を繰り返す"],
+   ex:[[6,"日課表とタイマーを自分で使い、促しなく日課をこなす"],[4,"人と日課は覚えているが、依頼は半分くらい忘れる（1/3+1/3+1/6＝83%）"],[3,"人と日課は覚えているが、依頼は全く覚えていない（67%）"],[2,"スタッフの顔だけ覚えている（33%）"]]}
+];
+const BY_ID = Object.fromEntries(ITEMS.map(i=>[i.id,i]));
+const LV_COLOR = n => `var(--lv${n})`;
+function lvTable(it){
+  if(it.dom==="c") return COG_LV;
+  if(it.type==="loco") return LOCO_LV;
+  if(it.type==="stairs") return STAIR_LV;
+  if(it.type==="sph") return SPH_LV;
+  return MOTOR_LV;
+}
+const motorFromPct = p => p>=0.75?4 : p>=0.5?3 : p>=0.25?2 : 1;
+const cogFromPct = p => p>=0.9?5 : p>=0.75?4 : p>=0.5?3 : p>=0.25?2 : 1;
+
+/* ---------- 状態 ---------- */
+const today = () => { const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
+function blank(){
+  return {meta:{pid:"",date:today(),timing:"入院時",rater:""}, scores:{}, notes:{}, parts:{}, locoMode:"walk", tubMode:"浴槽", current:"eat", auto:true, sample:false};
+}
+function sampleState(){
+  const s = blank();
+  s.meta.pid = "例-0001"; s.meta.rater = "例"; s.sample = true;
+  Object.assign(s.scores,{eat:5,groom:4,bathe:4,dressU:4,dressL:3,toilet:3,bladder:5,bowel:6,trBed:4,trToi:4,trTub:3,loco:3,stairs:1,comp:6,expr:5,social:6,problem:4});
+  s.parts.bathe = [2,2,2,2,2,0,2,2,2,2];
+  s.notes.bathe = "臀部のみ介助。他は長柄ブラシなしで自分で洗う。";
+  s.current = "memory";
+  return s;
+}
+const store = {
+  get(k){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):null; }catch(e){ return null; } },
+  set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); return true; }catch(e){ return false; } }
+};
+let S = Object.assign(blank(), store.get("fim-draft") || sampleState());
+S.parts = S.parts || {};
+let history = store.get("fim-history") || [];
+let navi = {item:null, steps:[], result:null, asst:null, freq:null, mode:null};
+let cmpId = "";
+const saveDraft = () => store.set("fim-draft", S);
+
+/* ---------- 共通 ---------- */
+const $ = id => document.getElementById(id);
+const esc = s => String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function totals(sc){
+  let m=0,c=0,n=0;
+  ITEMS.forEach(i=>{ const v=sc[i.id]; if(v){ n++; if(i.dom==="m") m+=v; else c+=v; } });
+  return {m,c,a:m+c,n};
+}
+let toastT;
+function toast(msg, ms, action){
+  const t=$("toast"); t.textContent=msg;
+  if(action){ const b=document.createElement("button"); b.textContent=action.label; b.addEventListener("click",ev=>{ ev.stopPropagation(); t.hidden=true; action.run(); }); t.appendChild(b); }
+  t.hidden=false; clearTimeout(toastT); toastT=setTimeout(()=>t.hidden=true, ms||2000);
+}
+function download(name, text, type){
+  const blob=new Blob([text],{type});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+}
+const stamp = () => today().replace(/-/g,"");
+async function copy(text){
+  try{ await navigator.clipboard.writeText(text); toast("コピーしました"); }
+  catch(e){
+    const o=$("out"); o.textContent=text;
+    const r=document.createRange(); r.selectNodeContents(o); const sel=getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    toast("自動でコピーできませんでした。選択された文字をコピーしてください");
+  }
+}
+
+/* ---------- ヘッダー ---------- */
+function renderHeader(){
+  $("m-pid").value=S.meta.pid; $("m-date").value=S.meta.date; $("m-timing").value=S.meta.timing; $("m-rater").value=S.meta.rater;
+  renderTotals();
+  $("sample-banner").hidden = !S.sample;
+}
+function renderTotals(){
+  const t=totals(S.scores);
+  $("t-m").textContent=t.m; $("t-c").textContent=t.c; $("t-a").textContent=t.a;
+  const p=$("progress"); p.textContent = t.n===18 ? "18項目 採点完了" : `${t.n}/18 採点済み`; p.classList.toggle("done",t.n===18);
+}
+
+/* ---------- 項目一覧 ---------- */
+function renderRail(){
+  let h="", lastGrp="", lastDom="";
+  const t=totals(S.scores);
+  ITEMS.forEach(i=>{
+    if(i.dom!==lastDom){ h+=`<div class="grp domain"><span>${i.dom==="m"?"運動項目":"認知項目"}</span><span class="num">${i.dom==="m"?t.m+"/91":t.c+"/35"}</span></div>`; lastDom=i.dom; lastGrp=""; }
+    if(i.grp!==lastGrp){ h+=`<div class="grp">${i.grp}</div>`; lastGrp=i.grp; }
+    const v=S.scores[i.id];
+    h+=`<button class="ri" data-go="${i.id}" aria-current="${S.current===i.id}"><span class="code">${i.code}</span><span class="nm">${esc(i.name)}</span><span class="chip ${v?"set":""}" style="${v?`background:${LV_COLOR(v)}`:""}">${v||"–"}</span></button>`;
+  });
+  $("rail").innerHTML=h;
+  const cur=$("rail").querySelector('[aria-current="true"]');
+  if(cur && window.matchMedia("(max-width:820px)").matches) cur.scrollIntoView({block:"nearest",inline:"center"});
+}
+
+/* ---------- 項目パネル ---------- */
+function renderPanel(){
+  const it=BY_ID[S.current], v=S.scores[it.id], tbl=lvTable(it), idx=ITEMS.indexOf(it);
+  const wheel = it.type==="loco" && S.locoMode==="wheel";
+  let h=`<div class="panel-head"><div><div class="eyebrow">${it.dom==="m"?"運動":"認知"} ・ ${esc(it.grp)} ・ ${it.code}（${idx+1}/18）</div><h2>${esc(it.name)}</h2></div>
+    <div class="navbtns"><button data-step="-1" aria-label="前の項目" ${idx===0?"disabled":""}>←</button><button data-step="1" aria-label="次の項目" ${idx===17?"disabled":""}>→</button></div></div>
+    <p class="def">${esc(it.def)}</p>
+    <ul class="points">${it.pts.map(p=>`<li>${esc(p)}</li>`).join("")}</ul>`;
+  if(it.ex) h+=`<details class="exbox" open><summary>採点例（講習会資料より）</summary><div class="exs">${it.ex.map(([n,t])=>`<div class="ex"><b style="background:${LV_COLOR(n)}">${n}</b><span>${esc(t)}</span></div>`).join("")}</div></details>`;
+  if(it.type==="loco"){
+    h+=`<div class="modesw"><span>移動手段</span>
+      <button data-loco="walk" aria-pressed="${S.locoMode==="walk"}">歩行</button>
+      <button data-loco="wheel" aria-pressed="${S.locoMode==="wheel"}">車椅子</button>
+      <button data-loco="both" aria-pressed="${S.locoMode==="both"}">両方</button></div>`;
+  }
+  if(it.id==="trTub"){
+    h+=`<div class="modesw"><span>評価した場所</span>${["浴槽","シャワー"].map(m=>`<button data-tub="${m}" aria-pressed="${S.tubMode===m}">${m}</button>`).join("")}</div>`;
+  }
+  const sep5 = it.dom==="c" ? "介助あり（指示・促し・配慮も介助）" : "介助者あり・体に触れない";
+  const sep4 = it.dom==="c" ? "" : "介助者が体に触れる";
+  h+=`<div class="levels"><div class="lv-sep">介助者なし</div>`;
+  [7,6,5,4,3,2,1].forEach(n=>{
+    if(n===5) h+=`<div class="lv-sep">${sep5}</div>`;
+    if(n===4 && sep4) h+=`<div class="lv-sep">${sep4}</div>`;
+    const dis = wheel && n===7;
+    h+=`<button class="lv ${navi.result===n&&navi.item===it.id?"hint":""}" data-lv="${n}" aria-pressed="${v===n}" ${dis?"disabled":""}>
+      <span class="n" style="background:${LV_COLOR(n)}">${n}</span>
+      <span class="t"><b>${tbl[n][0]}</b><span>${esc(dis?"車椅子の場合は最高6点":tbl[n][1])}</span></span></button>`;
+  });
+  h+=`</div>
+    <div class="note"><label for="note">メモ（根拠・観察場面）</label><textarea id="note" placeholder="例：朝の更衣場面を観察。ズボンの引き上げのみ介助。">${esc(S.notes[it.id]||"")}</textarea></div>
+    <div class="foot-row"><label class="switch"><input type="checkbox" id="auto" ${S.auto?"checked":""}>点数を選んだら次の項目へ進む</label>
+    ${v?`<button class="clearbtn" id="clear">この項目の点数を消す</button>`:""}</div>`;
+  $("panel").innerHTML=h;
+}
+
+/* ---------- 判定ナビ：質問 ---------- */
+function pctOpts(cog){
+  return cog
+    ? [{label:"90%以上（介助は10%未満）",result:5},{label:"75%以上90%未満",result:4},{label:"50%以上75%未満",result:3},{label:"25%以上50%未満",result:2},{label:"25%未満",result:1}]
+    : [{label:"75%以上",result:4},{label:"50%以上75%未満",result:3},{label:"25%以上50%未満",result:2},{label:"25%未満、または二人介助",result:1}];
+}
+function navFlow(it){
+  const t=it.type, st=navi.steps, k=i=>st[i]&&st[i].k;
+  const indep = {q:"補助具の使用、通常の3倍以上の時間、安全性の配慮のいずれかがある？",hint:"補助具：装具・義肢・杖・手すり・自助具・改造した衣服など（眼鏡は含まない）",opts:[{label:"はい",result:6},{label:"いいえ",result:7}]};
+  if(t==="motor"){
+    if(!st.length) return {q:"評価する課題を行うとき、介助者は必要？",opts:[{label:"不要（一人でしている）",next:"none"},{label:"必要",next:"need"}]};
+    if(k(0)==="none") return indep;
+    if(st.length===1) return {q:"介助の内容は？",opts:[{label:"監視・助言・準備のみ（体に触れない）",result:5},{label:"体に手を触れる介助がある",next:"touch"}]};
+    const o = pctOpts(false);
+    if(it.touchHint){ o[0].label="75%以上（念のため軽く触れる）"; o[1].label="50〜75%（軽く引き上げる）"; o[2].label="25〜50%（引き上げて回す）"; o[3].label="25%未満（持ち上げる・二人介助）"; }
+    return {q:"本人が自分で行っている割合は？",hint:"全体の動作のうち、何割を本人が、何割を介助者が行っているかで考える",opts:o};
+  }
+  if(t==="cog"){
+    const V=it.verb;
+    if(!st.length) return {q: it.both?`複雑な問題と日常の問題の両方を、介助なしで${V}？`:`複雑・抽象的な内容を、介助なしで${V}？`,
+      hint: it.id==="problem"?"複雑：退院計画・服薬や金銭の管理／日常：転倒の危険の認識、ナースコール":"複雑：集団会話、ニュース、冗談、金銭の話",
+      opts:[{label:"はい",next:"hi"},{label:"いいえ",next:"lo"}]};
+    if(k(0)==="hi") return {q:"わずかな困難、通常以上の時間、補助具（補聴器・筆談・薬ケースなど）のいずれかがある？",opts:[{label:"はい",result:6},{label:"いいえ",result:7}]};
+    return {q: it.id==="problem"?"日常の問題を自分で解決している割合は？":`基本的欲求（食事・排泄・痛みなど）の内容を${V}割合は？`,
+      hint: it.id==="problem"?"解決できないときに指示・助言・見守りが必要な頻度から考える":"目安：4点＝言葉を選んだ短い文が通じる／3点＝強調した短い句／2点＝ジェスチャー・単語・Yes/No",
+      opts:pctOpts(true)};
+  }
+  if(t==="social"){
+    if(!st.length) return {q:"家族・スタッフ・他患と、介助なしで適切に関わっている？",opts:[{label:"はい",next:"hi"},{label:"いいえ（介助を受ける・不適切な言動がある）",next:"lo"}]};
+    if(k(0)==="hi") return {q:"まれにコントロールを失う、慣れるまで時間がかかる、薬で調整している、のいずれかがある？",opts:[{label:"はい",result:6},{label:"いいえ",result:7}]};
+    return {q:"適切に関われている割合は？",hint:"「○回に×回」不適切な言動や介助があるかで考える。全く交流しない場合も1点",
+      opts:[{label:"90%以上（不適切は10%未満）",result:5},{label:"75%以上90%未満",result:4},{label:"50%以上75%未満",result:3},{label:"25%以上50%未満",result:2},{label:"25%未満／全く交流しない",result:1}]};
+  }
+  if(t==="loco"||t==="stairs"){
+    const L = t==="loco" ? {full:"50m",ex:"15m",act:"移動",exNote:"普段の移動が15mの範囲（家庭内移動）"} : {full:"12〜14段",ex:"4〜6段",act:"昇降",exNote:"普段の昇降が4〜6段の範囲"};
+    const exFlow = (base)=>{
+      if(st.length===base) return {q:`${L.ex}の${L.act}に、介助者は必要？`,hint:`介助者不要で5点になるのは特例（${L.exNote}）`,opts:[{label:"不要（一人で。補助具はOK）",result:5},{label:"必要",next:"exNeed"},{label:`${L.ex}も${L.act}していない`,result:1}]};
+      return {q:"本人が1/4（25%）以上を自分で行っている？",opts:[{label:"はい（一人の介助）",result:2},{label:"いいえ／二人介助",result:1}]};
+    };
+    if(!st.length) return {q:`${L.full}以上を${L.act}している？（介助の有無は問わない）`,opts:[{label:"はい",next:"full"},{label:"いいえ",next:"short"}]};
+    if(k(0)==="short") return exFlow(1);
+    if(st.length===1) return {q:"介助者は必要？",opts:[{label:"不要",next:"none"},{label:"必要",next:"need"}]};
+    if(k(1)==="none"){
+      const wheel = t==="loco" && S.locoMode==="wheel";
+      return {q: t==="loco"?"装具・義足・杖・歩行器・車椅子を使う、時間がかかる、安全性の配慮がある？":"手すり・杖・装具・義足を使う、時間がかかる、安全性の配慮がある？",
+        opts: wheel?[{label:"車椅子のため",result:6}]:[{label:"はい",result:6},{label:"いいえ",result:7}]};
+    }
+    if(st.length===2) return {q:"監視・助言・準備のみ？",opts:[{label:"はい（体に触れない）",result:5},{label:"いいえ（触れる介助あり）",next:"touch"}]};
+    if(st.length===3) return {q:"本人が3/4（75%）以上を行っている？",opts:[{label:"はい",result:4},{label:"いいえ",next:"lt75"}]};
+    if(st.length===4) return {q:"本人が1/2（50%）以上を行っている？",opts:[{label:"はい",result:3},{label:`いいえ → ${L.ex}で評価`,next:"toEx"}]};
+    return exFlow(5);
+  }
+  return null;
+}
+
+/* ---------- 判定ナビ：動作を数える ---------- */
+const PSTATE = [["介助",0],["一部",1],["自分",2]];
+function partsPct(it){
+  const arr=S.parts[it.id]||[]; let sum=0,cnt=0,filled=0;
+  it.parts.forEach((_,i)=>{ const v=arr[i]; if(v===undefined||v===null) return; filled++; if(v===-1) return; cnt++; sum+=v/2; });
+  return {pct: cnt?sum/cnt:null, filled, cnt};
+}
+function renderParts(it){
+  const arr=S.parts[it.id]||[];
+  let h=`<div class="parts">`;
+  it.parts.forEach((p,i)=>{
+    const v=arr[i];
+    h+=`<div class="part"><div class="pl">${esc(p)}</div><div class="pseg">${PSTATE.map(([l,val])=>`<button data-part="${i}" data-pv="${val}" aria-pressed="${v===val}">${it.type==="memory"?({0:"覚えていない",1:"半分",2:"覚えている"})[val]:l}</button>`).join("")}${it.allowNA?`<button data-part="${i}" data-pv="-1" aria-pressed="${v===-1}">対象外</button>`:""}</div></div>`;
+  });
+  h+=`</div>`;
+  const {pct,filled,cnt}=partsPct(it);
+  if(filled<it.parts.length){
+    h+=`<p class="qhint" style="margin-top:12px">すべての${it.type==="memory"?"内容":"動作"}を選ぶと点数を計算します（${filled}/${it.parts.length}）。</p>`;
+    return h;
+  }
+  if(!cnt){ h+=`<p class="qhint" style="margin-top:12px">対象となる動作がありません。</p>`; return h; }
+  const pr=Math.round(pct*100);
+  h+=`<div class="meter"><div class="mt"><span>自分でしている割合</span><b>${pr}%</b></div><div class="bar"><i style="width:${pr}%"></i></div></div>`;
+  if(pct===1){
+    const choices = it.type==="memory"
+      ? [[7,"手がかりなしで覚えている"],[6,"日課表・メモなどを使って覚えている"],[5,"まれに（10%未満）促しが必要"]]
+      : [[7,"補助具・時間・安全配慮なし"],[6,"補助具・3倍以上の時間・安全配慮あり"],[5,"見守り・助言・準備を受けている"]];
+    h+=`<div class="result"><small>${it.type==="memory"?"すべて覚えている。":"すべての動作を自分で行っている。"}あてはまるものを選んでください。</small><div class="opts">${choices.map(([n,l])=>`<button class="opt" data-apply="${n}">${l}<em>${n}</em></button>`).join("")}</div></div>`;
+  } else {
+    const n = it.type==="memory" ? cogFromPct(pct) : motorFromPct(pct);
+    navi.result=n;
+    h+=resultBox(n, it.type==="memory"?`覚えている割合 ${pr}%`:`介助量 ${100-pr}%`);
+  }
+  return h;
+}
+
+function renderNavi(){
+  const it=BY_ID[S.current];
+  if(navi.item!==it.id){ navi={item:it.id,steps:[],result:null,asst:null,freq:null,mode:it.parts?"count":"ask"}; }
+  let h=`<h3>判定ナビ</h3><p class="sub">${it.parts?"動作ごとにタップするか、質問に答えると点数の候補を示します。":"質問に答えると点数の候補を示します。"}</p>`;
+  if(it.type==="sph"){
+    h+=`<div class="sec">1. 介助量（器具・薬剤の扱いを含む）</div><div class="asst">${[7,6,5,4,3,2,1].map(n=>`<button class="opt" data-asst="${n}" aria-pressed="${navi.asst===n}">${n}</button>`).join("")}</div>
+      <ul class="hintlist"><li>6：尿器・カテーテル・おむつ・座薬・内服を自分で扱う</li><li>5：器具の用意・片付け、尿を捨ててもらう</li><li>4：尿器をあててもらう、座薬を隔日〜毎日入れてもらう</li><li>2：おむつ交換を頼む／1：頼むこともしない</li></ul>
+      <div class="sec">2. 失敗の頻度（汚して片付けに介助を受ける）</div><div class="freq">
+      ${[[7,"失敗しない"],[5,"月1回未満"],[4,"週1回未満"],[3,"1日1回未満"],[2,"毎日"]].map(([n,l])=>`<button class="opt" data-freq="${n}" aria-pressed="${navi.freq===n}">${l}<em>${n}</em></button>`).join("")}</div>`;
+    if(navi.asst && navi.freq){
+      navi.result=Math.min(navi.asst,navi.freq);
+      h+=`<div class="sec">3. 低い方をとる</div>`+resultBox(navi.result, `介助量 ${navi.asst}点 ／ 失敗の頻度 ${navi.freq}点`);
+    } else navi.result=null;
+    $("navi").innerHTML=h; return;
+  }
+  if(it.parts){
+    h+=`<div class="nseg"><button data-nmode="count" aria-pressed="${navi.mode==="count"}">${it.type==="memory"?"3つの内容で数える":"動作で数える"}</button><button data-nmode="ask" aria-pressed="${navi.mode==="ask"}">質問で判定</button></div>`;
+  }
+  if(it.parts && navi.mode==="count"){
+    h+=renderParts(it);
+    h+=`<div class="btnrow" style="margin-top:10px"><button class="ghost" id="parts-reset">選択を消す</button></div>`;
+    $("navi").innerHTML=h; return;
+  }
+  if(it.type==="memory"){ // 質問モード
+    if(!navi.steps.length){ h+=`<div class="q">関わりの深い人・毎日の日課・他人からの依頼を、介助なしで覚えている？</div><div class="opts"><button class="opt" data-mq="hi">はい</button><button class="opt" data-mq="lo">いいえ（促しを受ける・覚えていない）</button></div>`; }
+    else if(navi.steps[0].k==="hi" && !navi.result){ h+=`<div class="trail"><div>介助なしで覚えている → <b>はい</b></div></div><div class="q">わずかな困難、通常以上の時間、手がかりや補助具（日課表・メモリーノート）がある？</div><div class="opts"><button class="opt" data-mres="6">はい<em>6</em></button><button class="opt" data-mres="7">いいえ<em>7</em></button></div>`; }
+    else if(navi.steps[0].k==="lo" && !navi.result){ h+=`<div class="trail"><div>介助なしで覚えている → <b>いいえ</b></div></div><p class="qhint">5点以下は「3つの内容で数える」で割合を出すと判定しやすくなります。</p><div class="q">覚えている割合は？</div><div class="opts">${pctOpts(true).map(o=>`<button class="opt" data-mres="${o.result}">${o.label}<em>${o.result}</em></button>`).join("")}</div>`; }
+    if(navi.result) h+=resultBox(navi.result);
+    if(navi.steps.length) h+=`<div class="btnrow" style="margin-top:10px"><button class="ghost" id="navi-reset">最初から</button></div>`;
+    $("navi").innerHTML=h; return;
+  }
+  if(navi.steps.length) h+=`<div class="trail">${navi.steps.map(s=>`<div>${esc(s.q)} → <b>${esc(s.a)}</b></div>`).join("")}</div>`;
+  if(navi.result){ h+=resultBox(navi.result); }
+  else {
+    const f=navFlow(it);
+    h+=`<div class="q">${esc(f.q)}</div>${f.hint?`<div class="qhint">${esc(f.hint)}</div>`:""}<div class="opts">${f.opts.map((o,i)=>`<button class="opt" data-opt="${i}">${esc(o.label)}${o.result?`<em>${o.result}</em>`:""}</button>`).join("")}</div>`;
+    if(it.touchHint && navi.steps.length===0) h+=`<ul class="hintlist">${TRANSFER_HINT.map(x=>`<li>${x}</li>`).join("")}</ul>`;
+  }
+  if(navi.steps.length) h+=`<div class="btnrow" style="margin-top:10px"><button class="ghost" id="navi-back">1つ戻る</button><button class="ghost" id="navi-reset">最初から</button></div>`;
+  $("navi").innerHTML=h;
+}
+function resultBox(n, extra){
+  const tbl=lvTable(BY_ID[S.current]);
+  return `<div class="result"><div class="big"><b style="color:${LV_COLOR(n)}">${n}</b><span>${tbl[n][0]}</span></div>${extra?`<small>${esc(extra)}</small>`:""}<button class="primary" data-apply="${n}">${n}点で採点する</button></div>`;
+}
+
+/* ---------- 集計 ---------- */
+function renderSummary(){
+  const sel=$("cmp");
+  const opts=history.slice().sort((a,b)=>(b.meta.date||"").localeCompare(a.meta.date||""));
+  sel.innerHTML=`<option value="">比較しない</option>`+opts.map(r=>{const t=totals(r.scores);return `<option value="${r.id}" ${r.id===cmpId?"selected":""}>${esc(r.meta.pid||"ID未入力")}　${esc(r.meta.date)} ${esc(r.meta.timing)}（${t.a}点）</option>`}).join("");
+  const cmp=history.find(r=>r.id===cmpId);
+  let h=`<thead><tr><th>項目</th><th class="c">点数</th>${cmp?`<th class="c">比較</th><th class="c">差</th>`:""}<th>1 ─ 7</th></tr></thead><tbody>`;
+  let lastDom="";
+  const t=totals(S.scores), ct=cmp?totals(cmp.scores):null;
+  ITEMS.forEach(i=>{
+    if(i.dom!==lastDom){
+      const cur=i.dom==="m"?t.m:t.c, pc=ct?(i.dom==="m"?ct.m:ct.c):null;
+      h+=`<tr class="dom"><td>${i.dom==="m"?"運動項目（91点満点）":"認知項目（35点満点）"}</td><td class="c num">${cur}</td>${cmp?`<td class="c num">${pc}</td><td class="c">${gain(cur-pc)}</td>`:""}<td></td></tr>`;
+      lastDom=i.dom;
+    }
+    const v=S.scores[i.id], p=cmp?cmp.scores[i.id]:null;
+    h+=`<tr><td>${i.code}. ${esc(i.name)}</td><td class="c num"><b>${v||"–"}</b></td>${cmp?`<td class="c num">${p||"–"}</td><td class="c">${v&&p?gain(v-p):""}</td>`:""}
+      <td><div class="bar">${v?`<i style="width:${v/7*100}%;background:${LV_COLOR(v)}"></i>`:""}${p?`<u style="left:calc(${p/7*100}% - 1px)"></u>`:""}</div></td></tr>`;
+  });
+  h+=`<tr class="dom"><td>合計（126点満点）</td><td class="c num">${t.a}</td>${cmp?`<td class="c num">${ct.a}</td><td class="c">${gain(t.a-ct.a)}</td>`:""}<td></td></tr></tbody>`;
+  $("sumtbl").innerHTML=h;
+  $("out").textContent=asText();
+}
+function gain(d){ return `<span class="gain num ${d>0?"up":d<0?"down":""}">${d>0?"+":""}${d}</span>`; }
+function asText(){
+  const t=totals(S.scores), m=S.meta;
+  const line = dom => ITEMS.filter(i=>i.dom===dom).map(i=>`${i.name} ${S.scores[i.id]||"–"}`).join("、");
+  let s=`FIM ${m.timing}（${m.date}） 患者ID：${m.pid||"未入力"} 評価者：${m.rater||"未入力"}\n`;
+  s+=`合計 ${t.a}/126（運動 ${t.m}/91、認知 ${t.c}/35）${t.n<18?`　※未採点 ${18-t.n}項目`:""}\n`;
+  s+=`運動：${line("m")}\n認知：${line("c")}`;
+  s+=`\n移動手段：${({walk:"歩行",wheel:"車椅子",both:"歩行・車椅子"})[S.locoMode]}　浴槽・シャワー移乗：${S.tubMode}`;
+  const notes=ITEMS.filter(i=>S.notes[i.id]).map(i=>`・${i.name}：${S.notes[i.id]}`);
+  if(notes.length) s+=`\nメモ\n`+notes.join("\n");
+  return s;
+}
+function asTSV(){
+  const t=totals(S.scores), m=S.meta;
+  const head=["患者ID","評価日","評価時期","評価者",...ITEMS.map(i=>i.name),"運動","認知","合計"];
+  const row=[m.pid,m.date,m.timing,m.rater,...ITEMS.map(i=>S.scores[i.id]||""),t.m,t.c,t.a];
+  return head.join("\t")+"\n"+row.join("\t");
+}
+
+/* ---------- 保存した評価 ---------- */
+let pendingDelete=null;
+function renderHistory(){
+  if(!history.length){ $("hist").innerHTML=`<div class="empty">保存した評価はまだありません。「集計・比較」タブの「この評価を保存」で、この端末に保存できます。</div>`; return; }
+  const rows=history.slice().sort((a,b)=>(b.meta.date||"").localeCompare(a.meta.date||"")||b.savedAt-a.savedAt);
+  $("hist").innerHTML=rows.map(r=>{const t=totals(r.scores);return `<div class="hrow">
+    <div><div class="who">${esc(r.meta.pid||"ID未入力")}　<span style="font-weight:400">${esc(r.meta.timing)}</span></div><div class="when">${esc(r.meta.date)}　評価者 ${esc(r.meta.rater||"—")}　${t.n<18?`未採点 ${18-t.n}項目`:""}</div></div>
+    <div class="sc">運動 ${t.m}・認知 ${t.c}<br><b>${t.a}</b> /126</div>
+    <div class="acts"><button class="ghost" data-open="${r.id}">開いて編集</button><button class="ghost" data-cmp="${r.id}">比較対象にする</button>
+    ${pendingDelete===r.id?`<button class="ghost danger" data-del-yes="${r.id}">本当に削除</button><button class="ghost" data-del-no>やめる</button>`:`<button class="ghost" data-del="${r.id}">削除</button>`}</div></div>`}).join("");
+}
+
+/* ---------- 操作 ---------- */
+function setScore(n){
+  const it=BY_ID[S.current];
+  S.scores[it.id]=n; S.sample=false;
+  saveDraft(); renderTotals(); renderRail(); $("sample-banner").hidden=true;
+  if(S.auto){
+    const idx=ITEMS.indexOf(it);
+    const nextEmpty = ITEMS.slice(idx+1).find(i=>!S.scores[i.id]);
+    if(nextEmpty || idx<17){ go((nextEmpty||ITEMS[idx+1]).id); toast(`${it.name}：${n}点`); return; }
+  }
+  renderPanel(); renderNavi();
+}
+function go(id){ S.current=id; saveDraft(); renderRail(); renderPanel(); renderNavi(); if(window.matchMedia("(max-width:1099px)").matches) $("panel").scrollIntoView({block:"start",behavior:"smooth"}); }
+function newAssessment(){
+  const keep={pid:S.sample?"":S.meta.pid, rater:S.sample?"":S.meta.rater};
+  S=blank(); S.meta.pid=keep.pid; S.meta.rater=keep.rater; cmpId="";
+  navi={item:null,steps:[],result:null,asst:null,freq:null,mode:null};
+  saveDraft(); renderAll(); showTab("score"); toast("新しい評価を始めました");
+}
+function showTab(name){
+  ["score","sum","hist"].forEach(n=>{ $("view-"+n).hidden = n!==name; $("tab-"+n).setAttribute("aria-selected", n===name); });
+  if(name==="sum") renderSummary();
+  if(name==="hist") renderHistory();
+  try{ sessionStorage.setItem("fim-tab",name); }catch(e){}
+}
+function renderAll(){ renderHeader(); renderRail(); renderPanel(); renderNavi(); }
+
+document.addEventListener("click", e=>{
+  const b=e.target.closest("button"); if(!b) return;
+  requestWake();
+  const d=b.dataset;
+  if(d.go) return go(d.go);
+  if(d.step){ const i=ITEMS.findIndex(x=>x.id===S.current)+Number(d.step); if(ITEMS[i]) go(ITEMS[i].id); return; }
+  if(d.lv) return setScore(Number(d.lv));
+  if(d.apply){ const n=Number(d.apply); navi.item=null; setScore(n); return; }
+  if(d.loco){ S.locoMode=d.loco; if(S.locoMode==="wheel"&&S.scores.loco===7) delete S.scores.loco; navi.item=null; saveDraft(); renderAll(); return; }
+  if(d.tub){ S.tubMode=d.tub; saveDraft(); renderPanel(); return; }
+  if(b.id==="clear"){ delete S.scores[S.current]; saveDraft(); renderTotals(); renderRail(); renderPanel(); return; }
+  if(d.nmode){ navi.mode=d.nmode; navi.steps=[]; navi.result=null; renderNavi(); renderPanel(); return; }
+  if(d.part!==undefined){
+    const it=BY_ID[S.current]; const arr=(S.parts[it.id]=S.parts[it.id]||[]);
+    arr[Number(d.part)]=Number(d.pv); navi.result=null; saveDraft(); renderNavi(); renderPanel(); return;
+  }
+  if(b.id==="parts-reset"){ delete S.parts[S.current]; navi.result=null; saveDraft(); renderNavi(); renderPanel(); return; }
+  if(d.mq){ navi.steps=[{k:d.mq}]; navi.result=null; renderNavi(); return; }
+  if(d.mres){ navi.result=Number(d.mres); renderNavi(); renderPanel(); return; }
+  if(d.opt!==undefined){
+    const f=navFlow(BY_ID[S.current]), o=f.opts[Number(d.opt)];
+    navi.steps.push({q:f.q,a:o.label,k:o.next||null});
+    if(o.result) navi.result=o.result;
+    renderNavi(); renderPanel(); return;
+  }
+  if(d.asst){ navi.asst=Number(d.asst); renderNavi(); renderPanel(); return; }
+  if(d.freq){ navi.freq=Number(d.freq); renderNavi(); renderPanel(); return; }
+  if(b.id==="navi-back"){ navi.steps.pop(); navi.result=null; renderNavi(); renderPanel(); return; }
+  if(b.id==="navi-reset"){ navi.steps=[]; navi.result=null; renderNavi(); renderPanel(); return; }
+  if(b.id==="tab-score") return showTab("score");
+  if(b.id==="tab-sum") return showTab("sum");
+  if(b.id==="tab-hist") return showTab("hist");
+  if(b.id==="btn-new-from-sample") return newAssessment();
+  if(b.id==="btn-new"){ $("new-row").innerHTML=`<button class="ghost danger" id="btn-new-yes">内容を消して新規評価</button><button class="ghost" id="btn-new-no">やめる</button>`; return; }
+  if(b.id==="btn-new-no"){ $("new-row").innerHTML=`<button class="ghost" id="btn-new">新規評価</button>`; return; }
+  if(b.id==="btn-new-yes"){ $("new-row").innerHTML=`<button class="ghost" id="btn-new">新規評価</button>`; return newAssessment(); }
+  if(b.id==="btn-copy-text") return copy(asText());
+  if(b.id==="btn-copy-tsv") return copy(asTSV());
+  if(b.id==="btn-save"){
+    if(S.sample){ toast("サンプルは保存できません。新規評価から入力してください"); return; }
+    const rec={id:S.recId||("r"+Date.now()), savedAt:Date.now(), meta:{...S.meta}, scores:{...S.scores}, notes:{...S.notes}, parts:JSON.parse(JSON.stringify(S.parts)), locoMode:S.locoMode, tubMode:S.tubMode};
+    S.recId=rec.id;
+    history=history.filter(r=>r.id!==rec.id); history.push(rec);
+    const ok=store.set("fim-history",history); saveDraft();
+    toast(ok?"この端末に保存しました":"保存できませんでした。文章でコピーして控えてください");
+    renderSummary(); return;
+  }
+  if(d.open){
+    const r=history.find(x=>x.id===d.open); if(!r) return;
+    S={...blank(), meta:{...r.meta}, scores:{...r.scores}, notes:{...r.notes}, parts:JSON.parse(JSON.stringify(r.parts||{})), locoMode:r.locoMode||"walk", tubMode:r.tubMode||"浴槽", recId:r.id};
+    navi.item=null; saveDraft(); renderAll(); showTab("score"); toast("保存した評価を開きました"); return;
+  }
+  if(d.cmp){ cmpId=d.cmp; showTab("sum"); return; }
+  if(b.id==="btn-export"){
+    download(`FIMバックアップ_${stamp()}.json`, JSON.stringify({app:"fim-scoresheet",version:APP_VERSION,exportedAt:new Date().toISOString(),history,draft:S},null,1), "application/json");
+    toast("バックアップを書き出しました"); return;
+  }
+  if(b.id==="btn-import"){ $("import-file").click(); return; }
+  if(b.id==="btn-csv"){
+    if(!history.length){ toast("保存した評価がありません"); return; }
+    const head=["患者ID","評価日","評価時期","評価者",...ITEMS.map(i=>i.name),"運動","認知","合計","移動手段"];
+    const q=v=>`"${String(v??"").replace(/"/g,'""')}"`;
+    const rows=history.slice().sort((a,b)=>(a.meta.pid||"").localeCompare(b.meta.pid||"")||(a.meta.date||"").localeCompare(b.meta.date||"")).map(r=>{const t=totals(r.scores);return [r.meta.pid,r.meta.date,r.meta.timing,r.meta.rater,...ITEMS.map(i=>r.scores[i.id]||""),t.m,t.c,t.a,({walk:"歩行",wheel:"車椅子",both:"両方"})[r.locoMode||"walk"]].map(q).join(",");});
+    download(`FIM一覧_${stamp()}.csv`, "﻿"+[head.map(q).join(","),...rows].join("\r\n"), "text/csv");
+    toast("CSVを書き出しました"); return;
+  }
+  if(d.del){ pendingDelete=d.del; renderHistory(); return; }
+  if(d.delNo!==undefined){ pendingDelete=null; renderHistory(); return; }
+  if(d.delYes){ history=history.filter(r=>r.id!==d.delYes); if(cmpId===d.delYes) cmpId=""; pendingDelete=null; store.set("fim-history",history); renderHistory(); toast("削除しました"); return; }
+});
+document.addEventListener("input", e=>{
+  const t=e.target;
+  if(t.id==="note"){ S.notes[S.current]=t.value; saveDraft(); return; }
+  const map={"m-pid":"pid","m-date":"date","m-timing":"timing","m-rater":"rater"};
+  if(map[t.id]){ S.meta[map[t.id]]=t.value; if(S.sample){ S.sample=false; $("sample-banner").hidden=true; } saveDraft(); }
+});
+document.addEventListener("change", e=>{
+  if(e.target.id==="import-file"){
+    const f=e.target.files[0]; e.target.value=""; if(!f) return;
+    const rd=new FileReader();
+    rd.onload=()=>{
+      try{
+        const data=JSON.parse(rd.result);
+        if(data.app!=="fim-scoresheet" || !Array.isArray(data.history)) throw new Error("形式が違います");
+        const ids=new Set(data.history.map(r=>r.id));
+        history=history.filter(r=>!ids.has(r.id)).concat(data.history);
+        store.set("fim-history",history); renderHistory();
+        toast(`${data.history.length}件の評価を読み込みました`);
+      }catch(err){ toast("読み込めませんでした。このアプリで書き出したバックアップ（.json）を選んでください",4000); }
+    };
+    rd.readAsText(f); return;
+  }
+  if(e.target.id==="auto"){ S.auto=e.target.checked; saveDraft(); }
+  if(e.target.id==="cmp"){ cmpId=e.target.value; renderSummary(); }
+});
+document.addEventListener("keydown", e=>{
+  if(/INPUT|TEXTAREA|SELECT/.test(e.target.tagName) || $("view-score").hidden) return;
+  if(/^[1-7]$/.test(e.key)){ const b=document.querySelector(`.lv[data-lv="${e.key}"]`); if(b && !b.disabled) setScore(Number(e.key)); }
+  if(e.key==="ArrowRight"||e.key==="ArrowDown"){ const i=ITEMS.findIndex(x=>x.id===S.current); if(ITEMS[i+1]){ e.preventDefault(); go(ITEMS[i+1].id); } }
+  if(e.key==="ArrowLeft"||e.key==="ArrowUp"){ const i=ITEMS.findIndex(x=>x.id===S.current); if(ITEMS[i-1]){ e.preventDefault(); go(ITEMS[i-1].id); } }
+});
+
+/* 採点中はiPadの画面を消さない（許可されない環境では何もしない） */
+let wake=null;
+async function requestWake(){
+  if(wake || !("wakeLock" in navigator)) return;
+  try{ wake=await navigator.wakeLock.request("screen"); wake.addEventListener("release",()=>wake=null); }catch(e){}
+}
+
+/* ホーム画面追加・オフライン起動（https か localhost に置いたときだけ。file:// では何もしない） */
+function setupPwa(){
+  const isLocal = location.hostname==="localhost" || location.hostname==="127.0.0.1";
+  if(!(location.protocol==="https:" || (location.protocol==="http:" && isLocal))) return;
+  if("serviceWorker" in navigator){
+    navigator.serviceWorker.register("sw.js").catch(err=>console.warn("[FIM] service worker 登録失敗:",err));
+    navigator.serviceWorker.addEventListener("message", ev=>{
+      if(ev.data && ev.data.type==="fim-update-available") toast("新しいバージョンがあります", 10000, {label:"今すぐ更新", run:()=>location.reload()});
+    });
+  }
+  if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{});
+}
+
+$("app-ver").textContent=APP_VERSION;
+renderAll();
+let startTab="score"; try{ startTab=sessionStorage.getItem("fim-tab")||"score"; }catch(e){}
+showTab(startTab);
+setupPwa();
+})();
+</script>
+</body>
+</html>
