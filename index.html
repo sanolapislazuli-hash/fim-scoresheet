@@ -233,6 +233,25 @@ pre.out{white-space:pre-wrap;font-family:var(--sans);font-size:13px;background:v
   .lv,.opt,.ri{transition:border-color .12s,background-color .12s}
 }
 .backup{margin-top:20px}
+.pill{cursor:pointer}
+button.pill{font:inherit;font-size:12px}
+.savebtn{border:0;background:var(--accent);color:var(--on-accent);border-radius:999px;padding:6px 16px;min-height:40px;font-weight:700;font-size:14px}
+.prev-tag{font-size:11px;font-weight:700;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:1px 8px;margin-left:8px;white-space:nowrap}
+.lv .t b{display:flex;align-items:center;flex-wrap:wrap}
+.ri .pv{font-family:var(--num);font-size:12px;color:var(--muted);width:22px;text-align:right}
+.prevbar{margin-top:12px;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;background:var(--accent-soft);border-radius:var(--r);padding:10px 14px;font-size:14px}
+.headbtns{display:flex;gap:6px;align-items:center}
+.textbtn{border:1px solid var(--line);background:var(--surface);border-radius:8px;min-height:44px;padding:0 12px;font-size:13px;color:var(--muted)}
+.compact .def,.compact .points,.compact .exbox{display:none}
+.kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:4px 0 12px}
+.kpi div{background:var(--surface-2);border-radius:8px;padding:8px 10px}
+.kpi small{display:block;font-size:11px;color:var(--muted);letter-spacing:.04em}
+.kpi b{font-family:var(--num);font-size:24px}
+.fields{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.fields label{display:flex;flex-direction:column;font-size:12px;color:var(--muted);gap:2px}
+.fields input,.fields select{font:inherit;font-size:15px;color:var(--ink);background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:6px 8px;min-height:40px;width:7em}
+.idx{margin-top:12px;font-size:14px}
+.idx b{font-family:var(--num);font-size:28px;margin-right:6px}
 .toast button{margin-left:12px;background:var(--accent);color:var(--on-accent);border:0;border-radius:999px;padding:4px 12px;font-size:13px;font-weight:700}
 .ver{font-family:var(--num)}
 </style>
@@ -243,7 +262,7 @@ pre.out{white-space:pre-wrap;font-family:var(--sans);font-size:13px;background:v
   <div class="top-row">
     <div class="brand"><h1>FIM 採点パッド</h1><span>運動13・認知5項目／各1〜7点</span></div>
     <div class="meta">
-      <label for="m-pid">患者ID<input id="m-pid" autocomplete="off" placeholder="氏名は入れない"></label>
+      <label for="m-pid">患者ID<input id="m-pid" autocomplete="off" list="pid-list" placeholder="氏名は入れない"></label><datalist id="pid-list"></datalist>
       <label for="m-date">評価日<input id="m-date" type="date"></label>
       <label for="m-timing">評価時期<select id="m-timing"><option>入院時</option><option>中間</option><option>退院時</option><option>その他</option></select></label>
       <label for="m-rater">評価者<input id="m-rater" autocomplete="off"></label>
@@ -259,10 +278,12 @@ pre.out{white-space:pre-wrap;font-family:var(--sans);font-size:13px;background:v
     <button class="tab" role="tab" id="tab-sum" aria-selected="false">集計・比較</button>
     <button class="tab" role="tab" id="tab-hist" aria-selected="false">保存した評価</button>
     <span class="spacer"></span>
-    <span class="pill" id="progress">0/18 採点済み</span>
+    <button class="pill" id="progress" title="未採点の項目へ移動">0/18 採点済み</button>
+    <button class="savebtn" id="btn-save-top">保存</button>
   </div>
 </header>
 
+<div class="prevbar" id="prev-banner" hidden></div>
 <div class="sample" id="sample-banner" hidden>
   <span><b>サンプルデータを表示中です。</b>架空の例です。実際の評価は「新規評価を始める」から入力してください。</span>
   <button class="primary" id="btn-new-from-sample">新規評価を始める</button>
@@ -292,6 +313,11 @@ pre.out{white-space:pre-wrap;font-family:var(--sans);font-size:13px;background:v
           <button class="ghost" id="btn-copy-tsv">Excel用にコピー</button>
         </div>
         <pre class="out" id="out"></pre>
+      </div>
+      <div class="card" id="kpi-card">
+        <h2>FIM利得・実績指数</h2>
+        <p class="sub" id="kpi-sub">比較対象（入院時など）を選ぶと計算します。</p>
+        <div id="kpi-body"></div>
       </div>
       <div class="card">
         <h2>新しい評価</h2>
@@ -323,7 +349,7 @@ pre.out{white-space:pre-wrap;font-family:var(--sans);font-size:13px;background:v
 <script>
 (function(){
 "use strict";
-const APP_VERSION = "1.0";
+const APP_VERSION = "1.1";
 
 /* ---------- 採点基準 ---------- */
 const MOTOR_LV = {
@@ -488,7 +514,24 @@ let S = Object.assign(blank(), store.get("fim-draft") || sampleState());
 S.parts = S.parts || {};
 let history = store.get("fim-history") || [];
 let navi = {item:null, steps:[], result:null, asst:null, freq:null, mode:null};
-let cmpId = "";
+let cmpId = "";   // "" = 同じ患者の前回を自動で比較、"none" = 比較しない
+let settings = Object.assign({compact:false}, store.get("fim-settings")||{});
+const saveSettings = () => store.set("fim-settings", settings);
+let undo = null;
+function prevRec(){
+  const pid=(S.meta.pid||"").trim(); if(!pid) return null;
+  const cand=history.filter(r=>r.id!==S.recId && (r.meta.pid||"").trim()===pid);
+  if(!cand.length) return null;
+  const before=cand.filter(r=>(r.meta.date||"")<=(S.meta.date||""));
+  const pool=before.length?before:cand;
+  return pool.sort((a,b)=>(b.meta.date||"").localeCompare(a.meta.date||"")||b.savedAt-a.savedAt)[0];
+}
+function cmpRec(){
+  if(cmpId==="none") return null;
+  if(cmpId) return history.find(r=>r.id===cmpId)||null;
+  return prevRec();
+}
+const recLabel = r => `${r.meta.date} ${r.meta.timing}（合計${totals(r.scores).a}点）`;
 const saveDraft = () => store.set("fim-draft", S);
 
 /* ---------- 共通 ---------- */
@@ -526,22 +569,32 @@ function renderHeader(){
   $("m-pid").value=S.meta.pid; $("m-date").value=S.meta.date; $("m-timing").value=S.meta.timing; $("m-rater").value=S.meta.rater;
   renderTotals();
   $("sample-banner").hidden = !S.sample;
+  const ids=[...new Set(history.map(r=>(r.meta.pid||"").trim()).filter(Boolean))].sort();
+  $("pid-list").innerHTML=ids.map(i=>`<option value="${esc(i)}">`).join("");
+  renderPrevBanner();
+}
+function renderPrevBanner(){
+  const p=prevRec(), bn=$("prev-banner");
+  if(!p || S.sample){ bn.hidden=true; return; }
+  const empty=totals(S.scores).n===0;
+  bn.innerHTML=`<span>この患者の前回評価：<b>${esc(recLabel(p))}</b>。各項目に「前回」の点数を表示しています。</span>`+(empty?`<button class="primary" id="btn-inherit">前回の点数を引き継いで始める</button>`:"");
+  bn.hidden=false;
 }
 function renderTotals(){
   const t=totals(S.scores);
   $("t-m").textContent=t.m; $("t-c").textContent=t.c; $("t-a").textContent=t.a;
-  const p=$("progress"); p.textContent = t.n===18 ? "18項目 採点完了" : `${t.n}/18 採点済み`; p.classList.toggle("done",t.n===18);
+  const p=$("progress"); p.textContent = t.n===18 ? "18項目 採点完了" : `${t.n}/18 採点済み ▸`; p.classList.toggle("done",t.n===18);
 }
 
 /* ---------- 項目一覧 ---------- */
 function renderRail(){
   let h="", lastGrp="", lastDom="";
-  const t=totals(S.scores);
+  const t=totals(S.scores), pr=prevRec();
   ITEMS.forEach(i=>{
     if(i.dom!==lastDom){ h+=`<div class="grp domain"><span>${i.dom==="m"?"運動項目":"認知項目"}</span><span class="num">${i.dom==="m"?t.m+"/91":t.c+"/35"}</span></div>`; lastDom=i.dom; lastGrp=""; }
     if(i.grp!==lastGrp){ h+=`<div class="grp">${i.grp}</div>`; lastGrp=i.grp; }
     const v=S.scores[i.id];
-    h+=`<button class="ri" data-go="${i.id}" aria-current="${S.current===i.id}"><span class="code">${i.code}</span><span class="nm">${esc(i.name)}</span><span class="chip ${v?"set":""}" style="${v?`background:${LV_COLOR(v)}`:""}">${v||"–"}</span></button>`;
+    h+=`<button class="ri" data-go="${i.id}" aria-current="${S.current===i.id}"><span class="code">${i.code}</span><span class="nm">${esc(i.name)}</span>${pr&&pr.scores[i.id]?`<span class="pv" title="前回">${pr.scores[i.id]}→</span>`:""}<span class="chip ${v?"set":""}" style="${v?`background:${LV_COLOR(v)}`:""}">${v||"–"}</span></button>`;
   });
   $("rail").innerHTML=h;
   const cur=$("rail").querySelector('[aria-current="true"]');
@@ -553,7 +606,7 @@ function renderPanel(){
   const it=BY_ID[S.current], v=S.scores[it.id], tbl=lvTable(it), idx=ITEMS.indexOf(it);
   const wheel = it.type==="loco" && S.locoMode==="wheel";
   let h=`<div class="panel-head"><div><div class="eyebrow">${it.dom==="m"?"運動":"認知"} ・ ${esc(it.grp)} ・ ${it.code}（${idx+1}/18）</div><h2>${esc(it.name)}</h2></div>
-    <div class="navbtns"><button data-step="-1" aria-label="前の項目" ${idx===0?"disabled":""}>←</button><button data-step="1" aria-label="次の項目" ${idx===17?"disabled":""}>→</button></div></div>
+    <div class="headbtns"><button class="textbtn" id="toggle-compact">${settings.compact?"説明を表示":"説明を隠す"}</button><div class="navbtns"><button data-step="-1" aria-label="前の項目" ${idx===0?"disabled":""}>←</button><button data-step="1" aria-label="次の項目" ${idx===17?"disabled":""}>→</button></div></div></div>
     <p class="def">${esc(it.def)}</p>
     <ul class="points">${it.pts.map(p=>`<li>${esc(p)}</li>`).join("")}</ul>`;
   if(it.ex) h+=`<details class="exbox" open><summary>採点例（講習会資料より）</summary><div class="exs">${it.ex.map(([n,t])=>`<div class="ex"><b style="background:${LV_COLOR(n)}">${n}</b><span>${esc(t)}</span></div>`).join("")}</div></details>`;
@@ -566,6 +619,7 @@ function renderPanel(){
   if(it.id==="trTub"){
     h+=`<div class="modesw"><span>評価した場所</span>${["浴槽","シャワー"].map(m=>`<button data-tub="${m}" aria-pressed="${S.tubMode===m}">${m}</button>`).join("")}</div>`;
   }
+  const pv = (prevRec()||{scores:{}}).scores[it.id];
   const sep5 = it.dom==="c" ? "介助あり（指示・促し・配慮も介助）" : "介助者あり・体に触れない";
   const sep4 = it.dom==="c" ? "" : "介助者が体に触れる";
   h+=`<div class="levels"><div class="lv-sep">介助者なし</div>`;
@@ -575,13 +629,14 @@ function renderPanel(){
     const dis = wheel && n===7;
     h+=`<button class="lv ${navi.result===n&&navi.item===it.id?"hint":""}" data-lv="${n}" aria-pressed="${v===n}" ${dis?"disabled":""}>
       <span class="n" style="background:${LV_COLOR(n)}">${n}</span>
-      <span class="t"><b>${tbl[n][0]}</b><span>${esc(dis?"車椅子の場合は最高6点":tbl[n][1])}</span></span></button>`;
+      <span class="t"><b>${tbl[n][0]}${pv===n?`<span class="prev-tag">前回</span>`:""}</b><span>${esc(dis?"車椅子の場合は最高6点":tbl[n][1])}</span></span></button>`;
   });
   h+=`</div>
     <div class="note"><label for="note">メモ（根拠・観察場面）</label><textarea id="note" placeholder="例：朝の更衣場面を観察。ズボンの引き上げのみ介助。">${esc(S.notes[it.id]||"")}</textarea></div>
     <div class="foot-row"><label class="switch"><input type="checkbox" id="auto" ${S.auto?"checked":""}>点数を選んだら次の項目へ進む</label>
     ${v?`<button class="clearbtn" id="clear">この項目の点数を消す</button>`:""}</div>`;
   $("panel").innerHTML=h;
+  $("panel").classList.toggle("compact", !!settings.compact);
 }
 
 /* ---------- 判定ナビ：質問 ---------- */
@@ -725,8 +780,9 @@ function resultBox(n, extra){
 function renderSummary(){
   const sel=$("cmp");
   const opts=history.slice().sort((a,b)=>(b.meta.date||"").localeCompare(a.meta.date||""));
-  sel.innerHTML=`<option value="">比較しない</option>`+opts.map(r=>{const t=totals(r.scores);return `<option value="${r.id}" ${r.id===cmpId?"selected":""}>${esc(r.meta.pid||"ID未入力")}　${esc(r.meta.date)} ${esc(r.meta.timing)}（${t.a}点）</option>`}).join("");
-  const cmp=history.find(r=>r.id===cmpId);
+  const pr=prevRec();
+  sel.innerHTML=`<option value="">${pr?"同じ患者の前回（自動）":"前回なし（自動）"}</option><option value="none" ${cmpId==="none"?"selected":""}>比較しない</option>`+opts.map(r=>{const t=totals(r.scores);return `<option value="${r.id}" ${r.id===cmpId?"selected":""}>${esc(r.meta.pid||"ID未入力")}　${esc(r.meta.date)} ${esc(r.meta.timing)}（${t.a}点）</option>`}).join("");
+  const cmp=cmpRec();
   let h=`<thead><tr><th>項目</th><th class="c">点数</th>${cmp?`<th class="c">比較</th><th class="c">差</th>`:""}<th>1 ─ 7</th></tr></thead><tbody>`;
   let lastDom="";
   const t=totals(S.scores), ct=cmp?totals(cmp.scores):null;
@@ -743,6 +799,27 @@ function renderSummary(){
   h+=`<tr class="dom"><td>合計（126点満点）</td><td class="c num">${t.a}</td>${cmp?`<td class="c num">${ct.a}</td><td class="c">${gain(t.a-ct.a)}</td>`:""}<td></td></tr></tbody>`;
   $("sumtbl").innerHTML=h;
   $("out").textContent=asText();
+  renderKpi(cmp);
+}
+function renderKpi(cmp){
+  if(!cmp){ $("kpi-sub").textContent="比較対象（入院時など）を選ぶと計算します。"; $("kpi-body").innerHTML=""; return; }
+  const t=totals(S.scores), c=totals(cmp.scores);
+  $("kpi-sub").textContent=`${recLabel(cmp)} → 今回（${S.meta.date} ${S.meta.timing}）`;
+  const dm=t.m-c.m, dc=t.c-c.c, da=t.a-c.a;
+  const days=Number(S.meta.stayDays)||0, lim=Number(S.meta.limitDays)||0;
+  const idx = days&&lim ? (dm/(days/lim)) : null;
+  $("kpi-body").innerHTML=`<div class="kpi"><div><small>運動FIM利得</small><b>${dm>0?"+":""}${dm}</b></div><div><small>認知FIM利得</small><b>${dc>0?"+":""}${dc}</b></div><div><small>合計FIM利得</small><b>${da>0?"+":""}${da}</b></div></div>
+    <div class="fields"><label for="stay-days">在棟日数<input id="stay-days" type="number" inputmode="numeric" min="1" value="${esc(S.meta.stayDays||"")}"></label>
+    <label for="limit-days">算定上限日数<select id="limit-days"><option value="">選択</option>${[60,80,90,150,180].map(v=>`<option value="${v}" ${String(S.meta.limitDays)===String(v)?"selected":""}>${v}日</option>`).join("")}</select></label></div>
+    <div class="idx" id="kpi-idx">${idxHtml(idx)}</div>`;
+}
+function idxHtml(idx){
+  return idx===null?`<span class="sub">在棟日数と算定上限日数を入れると、この患者の実績指数（運動FIM利得 ÷ 在棟日数/算定上限日数）を表示します。</span>`:`<b>${idx.toFixed(1)}</b>この患者の実績指数<br><span class="sub" style="font-size:12px">病棟の実績指数は、対象患者の合計（除外規定あり）で計算します。</span>`;
+}
+function updateIdx(){
+  const cmp=cmpRec(); if(!cmp||!$("kpi-idx")) return;
+  const dm=totals(S.scores).m-totals(cmp.scores).m, days=Number(S.meta.stayDays)||0, lim=Number(S.meta.limitDays)||0;
+  $("kpi-idx").innerHTML=idxHtml(days&&lim?dm/(days/lim):null);
 }
 function gain(d){ return `<span class="gain num ${d>0?"up":d<0?"down":""}">${d>0?"+":""}${d}</span>`; }
 function asText(){
@@ -751,6 +828,8 @@ function asText(){
   let s=`FIM ${m.timing}（${m.date}） 患者ID：${m.pid||"未入力"} 評価者：${m.rater||"未入力"}\n`;
   s+=`合計 ${t.a}/126（運動 ${t.m}/91、認知 ${t.c}/35）${t.n<18?`　※未採点 ${18-t.n}項目`:""}\n`;
   s+=`運動：${line("m")}\n認知：${line("c")}`;
+  const cr=cmpRec();
+  if(cr){ const c=totals(cr.scores); s+=`\n前回比（${cr.meta.date} ${cr.meta.timing}）：運動 ${t.m-c.m>=0?"+":""}${t.m-c.m}、認知 ${t.c-c.c>=0?"+":""}${t.c-c.c}、合計 ${t.a-c.a>=0?"+":""}${t.a-c.a}`; }
   s+=`\n移動手段：${({walk:"歩行",wheel:"車椅子",both:"歩行・車椅子"})[S.locoMode]}　浴槽・シャワー移乗：${S.tubMode}`;
   const notes=ITEMS.filter(i=>S.notes[i.id]).map(i=>`・${i.name}：${S.notes[i.id]}`);
   if(notes.length) s+=`\nメモ\n`+notes.join("\n");
@@ -778,14 +857,39 @@ function renderHistory(){
 /* ---------- 操作 ---------- */
 function setScore(n){
   const it=BY_ID[S.current];
+  undo={id:it.id, prev:S.scores[it.id]};
   S.scores[it.id]=n; S.sample=false;
   saveDraft(); renderTotals(); renderRail(); $("sample-banner").hidden=true;
   if(S.auto){
     const idx=ITEMS.indexOf(it);
     const nextEmpty = ITEMS.slice(idx+1).find(i=>!S.scores[i.id]);
-    if(nextEmpty || idx<17){ go((nextEmpty||ITEMS[idx+1]).id); toast(`${it.name}：${n}点`); return; }
+    if(nextEmpty || idx<17){ go((nextEmpty||ITEMS[idx+1]).id); toast(`${it.name}：${n}点`, 3500, {label:"取り消す", run:doUndo}); return; }
   }
   renderPanel(); renderNavi();
+}
+function doUndo(){
+  if(!undo) return;
+  if(undo.prev) S.scores[undo.id]=undo.prev; else delete S.scores[undo.id];
+  S.current=undo.id; undo=null; saveDraft(); renderTotals(); renderRail(); renderPanel(); renderNavi(); renderPrevBanner();
+  toast("取り消しました");
+}
+function nextUnscored(){
+  const idx=ITEMS.findIndex(x=>x.id===S.current);
+  return ITEMS.slice(idx+1).concat(ITEMS.slice(0,idx+1)).find(i=>!S.scores[i.id]);
+}
+function saveRecord(){
+  if(S.sample){ toast("サンプルは保存できません。新規評価から入力してください",3000); return; }
+  if(!(S.meta.pid||"").trim()){ toast("患者IDを入れてから保存してください",3000); $("m-pid").focus(); return; }
+  const rec={id:S.recId||("r"+Date.now()), savedAt:Date.now(), meta:{...S.meta}, scores:{...S.scores}, notes:{...S.notes}, parts:JSON.parse(JSON.stringify(S.parts)), locoMode:S.locoMode, tubMode:S.tubMode};
+  S.recId=rec.id;
+  history=history.filter(r=>r.id!==rec.id); history.push(rec);
+  const ok=store.set("fim-history",history); saveDraft();
+  const n=18-totals(S.scores).n;
+  if(!ok) toast("保存できませんでした。文章でコピーして控えてください",4000);
+  else if(n) toast(`保存しました（未採点 ${n}項目）`,4000,{label:"未採点へ",run:()=>{showTab("score"); const u=nextUnscored(); if(u) go(u.id);}});
+  else toast("この端末に保存しました");
+  if(!$("view-sum").hidden) renderSummary();
+  renderHeader();
 }
 function go(id){ S.current=id; saveDraft(); renderRail(); renderPanel(); renderNavi(); if(window.matchMedia("(max-width:1099px)").matches) $("panel").scrollIntoView({block:"start",behavior:"smooth"}); }
 function newAssessment(){
@@ -840,19 +944,18 @@ document.addEventListener("click", e=>{
   if(b.id==="btn-new-yes"){ $("new-row").innerHTML=`<button class="ghost" id="btn-new">新規評価</button>`; return newAssessment(); }
   if(b.id==="btn-copy-text") return copy(asText());
   if(b.id==="btn-copy-tsv") return copy(asTSV());
-  if(b.id==="btn-save"){
-    if(S.sample){ toast("サンプルは保存できません。新規評価から入力してください"); return; }
-    const rec={id:S.recId||("r"+Date.now()), savedAt:Date.now(), meta:{...S.meta}, scores:{...S.scores}, notes:{...S.notes}, parts:JSON.parse(JSON.stringify(S.parts)), locoMode:S.locoMode, tubMode:S.tubMode};
-    S.recId=rec.id;
-    history=history.filter(r=>r.id!==rec.id); history.push(rec);
-    const ok=store.set("fim-history",history); saveDraft();
-    toast(ok?"この端末に保存しました":"保存できませんでした。文章でコピーして控えてください");
-    renderSummary(); return;
+  if(b.id==="btn-save"||b.id==="btn-save-top") return saveRecord();
+  if(b.id==="progress"){ const u=nextUnscored(); showTab("score"); if(u) go(u.id); else toast("18項目すべて採点済みです"); return; }
+  if(b.id==="toggle-compact"){ settings.compact=!settings.compact; saveSettings(); renderPanel(); return; }
+  if(b.id==="btn-inherit"){
+    const p=prevRec(); if(!p) return;
+    S.scores={...p.scores}; S.locoMode=p.locoMode||S.locoMode; S.tubMode=p.tubMode||S.tubMode;
+    saveDraft(); renderAll(); toast("前回の点数を引き継ぎました。変わった項目だけ直してください",4000); return;
   }
   if(d.open){
     const r=history.find(x=>x.id===d.open); if(!r) return;
     S={...blank(), meta:{...r.meta}, scores:{...r.scores}, notes:{...r.notes}, parts:JSON.parse(JSON.stringify(r.parts||{})), locoMode:r.locoMode||"walk", tubMode:r.tubMode||"浴槽", recId:r.id};
-    navi.item=null; saveDraft(); renderAll(); showTab("score"); toast("保存した評価を開きました"); return;
+    navi.item=null; cmpId=""; saveDraft(); renderAll(); showTab("score"); toast("保存した評価を開きました"); return;
   }
   if(d.cmp){ cmpId=d.cmp; showTab("sum"); return; }
   if(b.id==="btn-export"){
@@ -870,13 +973,15 @@ document.addEventListener("click", e=>{
   }
   if(d.del){ pendingDelete=d.del; renderHistory(); return; }
   if(d.delNo!==undefined){ pendingDelete=null; renderHistory(); return; }
-  if(d.delYes){ history=history.filter(r=>r.id!==d.delYes); if(cmpId===d.delYes) cmpId=""; pendingDelete=null; store.set("fim-history",history); renderHistory(); toast("削除しました"); return; }
+  if(d.delYes){ history=history.filter(r=>r.id!==d.delYes); if(cmpId===d.delYes) cmpId=""; if(S.recId===d.delYes) delete S.recId; pendingDelete=null; store.set("fim-history",history); renderHistory(); renderHeader(); renderRail(); toast("削除しました"); return; }
 });
 document.addEventListener("input", e=>{
   const t=e.target;
   if(t.id==="note"){ S.notes[S.current]=t.value; saveDraft(); return; }
   const map={"m-pid":"pid","m-date":"date","m-timing":"timing","m-rater":"rater"};
-  if(map[t.id]){ S.meta[map[t.id]]=t.value; if(S.sample){ S.sample=false; $("sample-banner").hidden=true; } saveDraft(); }
+  if(map[t.id]){ S.meta[map[t.id]]=t.value; if(S.sample){ S.sample=false; $("sample-banner").hidden=true; } saveDraft();
+    if(t.id==="m-pid"||t.id==="m-date"){ renderPrevBanner(); renderRail(); renderPanel(); } }
+  if(t.id==="stay-days"){ S.meta.stayDays=t.value; saveDraft(); updateIdx(); }
 });
 document.addEventListener("change", e=>{
   if(e.target.id==="import-file"){
@@ -896,6 +1001,8 @@ document.addEventListener("change", e=>{
   }
   if(e.target.id==="auto"){ S.auto=e.target.checked; saveDraft(); }
   if(e.target.id==="cmp"){ cmpId=e.target.value; renderSummary(); }
+  if(e.target.id==="limit-days"){ S.meta.limitDays=e.target.value; saveDraft(); updateIdx(); }
+  if(e.target.id==="m-timing"){ renderPrevBanner(); }
 });
 document.addEventListener("keydown", e=>{
   if(/INPUT|TEXTAREA|SELECT/.test(e.target.tagName) || $("view-score").hidden) return;
@@ -903,6 +1010,18 @@ document.addEventListener("keydown", e=>{
   if(e.key==="ArrowRight"||e.key==="ArrowDown"){ const i=ITEMS.findIndex(x=>x.id===S.current); if(ITEMS[i+1]){ e.preventDefault(); go(ITEMS[i+1].id); } }
   if(e.key==="ArrowLeft"||e.key==="ArrowUp"){ const i=ITEMS.findIndex(x=>x.id===S.current); if(ITEMS[i-1]){ e.preventDefault(); go(ITEMS[i-1].id); } }
 });
+
+/* 左右スワイプで前後の項目へ */
+let sx=null, sy=null;
+$("panel").addEventListener("touchstart", e=>{ if(e.touches.length!==1){ sx=null; return; } sx=e.touches[0].clientX; sy=e.touches[0].clientY; }, {passive:true});
+$("panel").addEventListener("touchend", e=>{
+  if(sx===null) return;
+  const dx=e.changedTouches[0].clientX-sx, dy=e.changedTouches[0].clientY-sy; sx=null;
+  if(Math.abs(dx)<70 || Math.abs(dy)>Math.abs(dx)*0.6) return;
+  if(e.target.closest("textarea,input,select,details")) return;
+  const i=ITEMS.findIndex(x=>x.id===S.current)+(dx<0?1:-1);
+  if(ITEMS[i]) go(ITEMS[i].id);
+}, {passive:true});
 
 /* 採点中はiPadの画面を消さない（許可されない環境では何もしない） */
 let wake=null;
