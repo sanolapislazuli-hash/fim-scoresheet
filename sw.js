@@ -1,7 +1,7 @@
 // FIM 採点パッド：オフライン起動用サービスワーカー
 // 方針：キャッシュを即座に返し（圏外でも起動できる）、裏で最新版を取得して次回起動時に反映する。
 // 検査データはページ側の localStorage にだけ保存され、ここでは一切扱わない。
-const CACHE = "fim-v1.1";
+const CACHE = "fim-v1.2";
 const PRECACHE = ["./", "./index.html", "./manifest.webmanifest", "./icons/icon-180.png", "./icons/icon-192.png", "./icons/icon-512.png"];
 
 self.addEventListener("install", (event) => {
